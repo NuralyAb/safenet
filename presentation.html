@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafeNet KZ — питч</title>
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#111934; --card:#16203f; --line:#26345f;
+    --txt:#e8edff; --muted:#9fb0d8; --accent:#4f8cff; --accent2:#39d3a3;
+    --warn:#ffb454; --crit:#ff5f6d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#05070f;color:var(--txt);font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  .deck{max-width:1180px;margin:0 auto;padding:32px 20px 80px}
+  .slide{
+    background:linear-gradient(160deg,var(--bg),var(--bg2));
+    border:1px solid var(--line);border-radius:20px;
+    padding:48px 56px;margin:0 0 28px;min-height:660px;
+    box-shadow:0 18px 50px rgba(0,0,0,.5);position:relative;overflow:hidden;
+  }
+  .slide::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(800px 300px at 90% -10%,rgba(79,140,255,.18),transparent 60%);}
+  .kicker{color:var(--accent2);font-weight:700;letter-spacing:.14em;
+    text-transform:uppercase;font-size:13px;margin-bottom:14px}
+  h1{font-size:46px;line-height:1.08;margin-bottom:18px;letter-spacing:-.5px}
+  h2{font-size:34px;margin-bottom:22px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:19px;max-width:820px;line-height:1.55}
+  .num{position:absolute;right:40px;bottom:28px;color:#3a4a78;font-size:14px;font-weight:700}
+  .tag{display:inline-block;background:rgba(79,140,255,.14);border:1px solid var(--line);
+    color:#bcd0ff;border-radius:999px;padding:6px 14px;font-size:13px;margin:4px 6px 4px 0}
+  .grid{display:grid;gap:18px;margin-top:26px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .card h3{font-size:18px;margin-bottom:8px;color:#fff;display:flex;align-items:center;gap:8px}
+  .card p{color:var(--muted);font-size:15px;line-height:1.5}
+  .ic{font-size:20px}
+  ul.clean{list-style:none;margin-top:18px}
+  ul.clean li{padding:11px 0 11px 30px;position:relative;font-size:18px;
+    border-bottom:1px solid rgba(38,52,95,.5);color:#dbe4ff}
+  ul.clean li::before{content:"▹";position:absolute;left:4px;color:var(--accent2);font-weight:700}
+  ul.clean li b{color:#fff}
+  .flow{font-family:"Cascadia Code",Consolas,monospace;font-size:14.5px;line-height:1.85;
+    background:#0a1024;border:1px solid var(--line);border-radius:14px;padding:22px 24px;color:#cfe0ff;
+    white-space:pre;overflow-x:auto;margin-top:20px}
+  .flow .a{color:var(--accent)} .flow .g{color:var(--accent2)}
+  .flow .w{color:var(--warn)} .flow .m{color:var(--muted)}
+  .stat{display:flex;gap:26px;flex-wrap:wrap;margin-top:30px}
+  .stat .s{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:18px 26px;min-width:150px}
+  .stat .s b{display:block;font-size:34px;color:#fff}
+  .stat .s span{color:var(--muted);font-size:14px}
+  .pill-row{margin-top:24px}
+  .footer{color:#5a6aa0;font-size:13px;margin-top:18px}
+  .tier{display:flex;align-items:center;gap:18px;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;padding:14px 20px;margin-top:14px}
+  .tier .tname{flex:0 0 190px;font-size:18px;font-weight:700;color:#fff;
+    display:flex;align-items:center;gap:9px;border-right:1px solid var(--line);padding-right:14px}
+  .tier .titems{flex:1;display:flex;flex-wrap:wrap;gap:0}
+  .tier .tag{margin:3px 6px 3px 0}
+  .lvl{display:flex;gap:10px;margin-top:8px}
+  .lvl span{flex:1;text-align:center;border-radius:8px;padding:6px;font-size:12px;font-weight:700;color:#0a1024}
+  .lo{background:#39d3a3} .me{background:#ffd454} .hi{background:#ffb454} .cr{background:#ff5f6d;color:#fff}
+  .quote{display:inline-block;background:rgba(255,212,84,.12);border:1px solid rgba(255,212,84,.35);
+    border-radius:8px;padding:3px 9px;margin:3px 4px 3px 0;font-size:14px;color:#ffe7a8}
+  .plus{color:var(--crit);font-weight:800;font-family:Consolas,monospace;margin-right:8px}
+  .minus{color:var(--accent2);font-weight:800;font-family:Consolas,monospace;margin-right:8px}
+  table.m{width:100%;border-collapse:collapse;margin-top:18px;font-size:16px}
+  table.m th,table.m td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left}
+  table.m th{color:var(--muted);font-weight:600}
+  table.m td b{color:#fff}
+  .t1{color:#c4b5fd} .t2{color:#f9a8d4} .t3{color:#7dd3fc}
+  @media (max-width:760px){.g2,.g3,.g4{grid-template-columns:1fr}.slide{padding:28px 22px}h1{font-size:32px}}
+  @media print{
+    body{background:#fff}
+    .deck{max-width:none;padding:0}
+    .slide{page-break-after:always;border-radius:0;margin:0;min-height:96vh;box-shadow:none}
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <!-- 1 -->
+  <section class="slide">
+    <div class="kicker">Хакатон SafeNet KZ · Шымкент 2026</div>
+    <h1>SafeNet KZ — цифровой щит<br>против незаконных схем в соцсетях</h1>
+    <p class="sub">Прототип, который находит <b>признаки</b> платных розыгрышей, скрытой рекламы онлайн-казино и
+      финансовых пирамид в постах, скриншотах, эфирах и группах, оценивает риск и объясняет каждое срабатывание
+      цитатой. Решает <b>все три трека</b> одним движком.</p>
+    <div class="pill-row">
+      <span class="tag">Русский · Қазақша · транслит · сленг</span><span class="tag">Текст + скриншоты + эфиры + видео</span>
+      <span class="tag">Граф связей</span><span class="tag">Объяснимый детерминированный балл</span>
+    </div>
+    <div class="stat">
+      <div class="s"><b>3 из 3</b><span>трека в одном движке</span></div>
+      <div class="s"><b>96.6%</b><span>precision на слепой выборке</span></div>
+      <div class="s"><b>3.3%</b><span>ложных срабатываний</span></div>
+      <div class="s"><b>~500/с</b><span>материалов на ядро</span></div>
+    </div>
+    <div class="num">1</div>
+  </section>
+
+  <!-- 2 -->
+  <section class="slide">
+    <div class="kicker">Проблема</div>
+    <h2>Схемы меняют форму быстрее, чем их успевают проверять вручную</h2>
+    <div class="grid g3">
+      <div class="card"><h3 class="t1">🎁 Платные розыгрыши</h3><p>«Номер = 1000 тг, оплата на Kaspi, рандомайзер в эфире». Выглядят как обычные конкурсы, но это лотерея без лицензии.</p></div>
+      <div class="card"><h3 class="t2">🎰 Скрытое казино</h3><p>«Как я поднял 300к за вечер, ссылка в шапке, промокод». Нативная реклама через блогеров, стримы и каналы-прокладки.</p></div>
+      <div class="card"><h3 class="t3">💸 Пирамиды</h3><p>«Вложи 5000 — получи 10 000. Пригласи друга — 10%». Закрытые группы в WhatsApp и Telegram, кураторы, «отзывы о выплатах».</p></div>
+    </div>
+    <ul class="clean">
+      <li>Маскировка: <b>к@зино, К А З И Н О, эмодзи 🎰, транслит, латиница внутри кириллицы</b></li>
+      <li>Смесь <b>русского и казахского</b>, информация <b>в скриншотах</b> и <b>в речи эфиров</b></li>
+      <li>Главная сложность — <b>не завалить аналитика ложными срабатываниями</b> на обычных конкурсах и легальной рекламе</li>
+    </ul>
+    <div class="num">2</div>
+  </section>
+
+  <!-- 3 -->
+  <section class="slide">
+    <div class="kicker">Подход</div>
+    <h2>Признаки → детерминированный балл → решение человека</h2>
+<div class="flow"><span class="m">пост / скриншот / эфир / видео / экспорт группы</span>
+  │ <span class="a">извлечение текста</span>: подпись · речь (STT) · OCR (Tesseract rus+kaz, on-prem) · визуальные теги
+  ▼
+<span class="g">нормализация</span>   5 «видов» текста: к@зино→казино · К А З И Н О · транслит · эмодзи · қ→к
+  ▼
+<span class="g">признаки</span>        словарь RU/KZ по 3 трекам + <span class="w">числовой анализ</span> («вложи X → получи Y», % в день, карты)
+                + LLM-помощник: находка принимается <span class="w">только с дословной цитатой</span>
+  ▼
+<span class="g">скоринг</span>         Σ вес × сила → <span class="w">гейты против ложных срабатываний</span> → низкий / средний / высокий
+  ▼
+<span class="a">очередь аналитика</span> (риск × охват) · <span class="a">граф</span>: Kaspi-номера · карты · промокоды · каналы</div>
+    <p class="footer">LLM никогда не ставит балл. Система не объявляет схему незаконной — она показывает признаки возможного нарушения.</p>
+    <div class="num">3</div>
+  </section>
+
+  <!-- 4 -->
+  <section class="slide">
+    <div class="kicker">Объяснимость</div>
+    <h2>Каждое срабатывание — с цитатой и вкладом в балл</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h3>«Ұтыс ойыны! Қатысу ақылы — 500 тг, Kaspi-ге аударыңыз. Жеңімпазды тікелей эфирде кездейсоқ анықтаймыз»</h3>
+        <p style="margin-top:10px"><span class="plus">+40</span>Платное участие <span class="quote">«Қатысу ақылы»</span></p>
+        <p><span class="plus">+20</span>Случайный выбор победителя <span class="quote">«кездейсоқ»</span></p>
+        <p><span class="plus">+15</span>Перевод на личную карту / Kaspi <span class="quote">«Kaspi-ге аударыңыз»</span></p>
+        <p><span class="plus">+10</span>Тема розыгрыша <span class="quote">«Ұтыс»</span></p>
+        <div class="lvl"><span class="cr">85 · ВЫСОКИЙ · трек «Розыгрыши»</span></div>
+      </div>
+      <div class="card">
+        <h3>«Розыгрыш! Подпишись, лайк, отметь подругу. Участие бесплатное, итоги через рандомайзер»</h3>
+        <p style="margin-top:10px"><span class="plus">+20</span>Случайный выбор <span class="quote">«рандомайзер»</span></p>
+        <p><span class="plus">+10</span>Тема розыгрыша <span class="quote">«Розыгрыш»</span></p>
+        <p><span class="minus">−5</span>Гейт: нет платного участия — обычный конкурс (≤ 25)</p>
+        <p><span class="minus">−12</span>Смягчение: механика бесплатного конкурса (×0.5)</p>
+        <div class="lvl"><span class="lo">12 · НИЗКИЙ · не мешает аналитику</span></div>
+      </div>
+    </div>
+    <p class="footer">Σ вкладов = итоговый балл: каждая поправка видна отдельной строкой и прослеживается до SHA-256 материала.</p>
+    <div class="num">4</div>
+  </section>
+
+  <!-- 5 -->
+  <section class="slide">
+    <div class="kicker">Против ложных срабатываний и маскировки</div>
+    <h2>Гейты для каждого трека + 5 видов текста</h2>
+    <div class="grid g2">
+      <div class="card"><h3>🛡 Гейты</h3>
+        <p>• взнос без случайности и без перевода на личную карту → турнир, не лотерея<br>
+           • «казино» без ссылки, промокода или призыва → новости и кино, ≤ 35<br>
+           • 15% годовых, КФГД, «под 16%» → банковский продукт, не пирамида<br>
+           • полиция, АФМ, «сақ болыңыз» без ссылки или карты → ×0.4<br>
+           • оператор в реестре лицензий → ×0.5</p></div>
+      <div class="card"><h3>🔎 Маскировка снимается автоматически</h3>
+        <p><span class="quote">к@зин0</span> <span class="quote">К А З И Н О</span> <span class="quote">KAЗИНО</span>
+           <span class="quote">𝓿𝓪𝓿𝓪𝓭𝓪</span> <span class="quote">vlozhi … poluchi</span> <span class="quote">🎰 💸</span>
+           <span class="quote">тегін / тегин</span><br><br>
+           Аналитик видит, <b>как</b> был скрыт признак: «скрыто подменой символов», «написано транслитом».</p></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>🔢 Числовой анализ</h3><p>«вложила 5000, вывожу по 1500 каждую неделю» = <b>30% в неделю ≈ 1560% годовых</b> (банк ≈ 14–16%). «120% за 2 месяца» = 60% в месяц.</p></div>
+      <div class="card"><h3>💳 Персональные данные</h3><p>Номера карт проверяются по Луну и показываются маскированными: <b>4400 43•• •••• 6789</b>. Роли в группах — кандидаты.</p></div>
+    </div>
+    <div class="num">5</div>
+  </section>
+
+  <!-- 6 -->
+  <section class="slide">
+    <div class="kicker">Инновации: мультимодальность и граф</div>
+    <h2>Скриншоты, эфиры, группы и сети аккаунтов</h2>
+    <div class="grid g3">
+      <div class="card"><h3>🖼 Скриншоты</h3><p>OCR Tesseract (rus+kaz+eng) прямо в контейнере, без внешних API: «ВЫВОД СРЕДСТВ 350 000 ₸ · Lucky Jet» → казино, высокий.</p></div>
+      <div class="card"><h3>🎙 Эфиры и видео</h3><p>Речь → текст, кадры → OCR и визуальные теги. Признак помечается источником «речь» или «экран».</p></div>
+      <div class="card"><h3>👥 Анализ группы</h3><p>Экспорт Telegram/WhatsApp → организатор и кураторы (кандидаты), шаблонные «выплата пришла 🙏» от разных людей, поток отзывов.</p></div>
+    </div>
+    <ul class="clean">
+      <li>Граф Neo4j: аккаунты, собирающие деньги на <b>один Kaspi-номер</b>, раздающие <b>один промокод</b> или ведущие в <b>один канал</b>, объединяются в сеть</li>
+      <li>Louvain выделяет сообщества, betweenness — центральные узлы (вероятные организаторы); «связи» добавляют до +10 к риску</li>
+      <li>Хантер сам генерирует запросы на RU и KZ по трём трекам и адаптируется по найденным паттернам</li>
+    </ul>
+    <div class="num">6</div>
+  </section>
+
+  <!-- 7 -->
+  <section class="slide">
+    <div class="kicker">Результаты — честно</div>
+    <h2>Метрики на размеченных выборках</h2>
+    <table class="m">
+      <tr><th>Прогон</th><th>Версия</th><th>Precision</th><th>Recall</th><th>FPR</th></tr>
+      <tr><td>test (178), вслепую</td><td>v1</td><td>100%</td><td>65.3%</td><td>0%</td></tr>
+      <tr><td>holdout (120), вслепую</td><td>v2</td><td>90.2%</td><td>76.7%</td><td>8.3%</td></tr>
+      <tr><td><b>blind (150), независимый автор</b></td><td><b>v3</b></td><td><b>96.6%</b></td><td><b>63.3%</b></td><td><b>3.3%</b></td></tr>
+    </table>
+    <ul class="clean">
+      <li>Каждая новая выборка прогонялась <b>один раз вслепую</b>, затем разбирались ошибки. Главную выборку написал исполнитель, <b>не видевший правил</b></li>
+      <li>Сильная сторона — <b>точность и минимум ложных срабатываний</b> на трудных негативах (бесплатные конкурсы, банки, новости): 4.2%</li>
+      <li>Слабая — <b>recall на незнакомом стиле</b> (суммы прописью, только эмодзи). Решение: LLM-помощник с проверкой цитат и обучаемый классификатор на решениях аналитиков</li>
+    </ul>
+    <p class="footer">Все данные синтетические. Отчёт — docs/METRICS.md; живой экран «Метрики и методика».</p>
+    <div class="num">7</div>
+  </section>
+
+  <!-- 8 -->
+  <section class="slide">
+    <div class="kicker">Для аналитика и масштаб</div>
+    <h2>Очередь, которую можно разобрать</h2>
+    <div class="grid g2">
+      <div class="card"><h3>🗂 Интерфейс</h3><p>Проверка контента (текст, скриншот, видео, группа) · Материалы с фильтрами по треку и уровню · «почему помечено» с цитатами · решения «специалисту / наблюдать / ложное» · досье аккаунта · граф связей · метрики.</p></div>
+      <div class="card"><h3>⚙️ Масштаб</h3><p>Правила: <b>~350–900 материалов/с на ядро</b> (≈30–75 млн в сутки). Каскад: дешёвые правила → OCR/STT → LLM только для рисковых. Celery-воркеры масштабируются горизонтально, приоритет = риск × охват.</p></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>🔒 Надёжность</h3><p>Предохранитель AI: без квоты или при 429 система за миллисекунды переходит на правила. Цепочка хранения доказательств (SHA-256, WORM), журнал аудита с хеш-цепочкой.</p></div>
+      <div class="card"><h3>🏛 On-prem</h3><p>AI-провайдер переключается одной настройкой: openai → local (vLLM, Whisper, Tesseract) без изменений кода. Во внешние API — только синтетика.</p></div>
+    </div>
+    <div class="num">8</div>
+  </section>
+
+  <!-- 9 -->
+  <section class="slide">
+    <div class="kicker">План внедрения</div>
+    <h2>От прототипа к пилоту</h2>
+    <div class="tier"><div class="tname">1–2 мес · пилот</div><div class="titems">
+      <span class="tag">on-prem модели</span><span class="tag">разметка решений аналитиков</span><span class="tag">публичные Telegram/Instagram/TikTok</span><span class="tag">реестры лицензий</span></div></div>
+    <div class="tier"><div class="tname">2–4 мес · качество</div><div class="titems">
+      <span class="tag">классификатор поверх признаков</span><span class="tag">многоязычные эмбеддинги</span><span class="tag">детектор экранов казино</span><span class="tag">разворот редиректов</span></div></div>
+    <div class="tier"><div class="tname">4–6 мес · масштаб</div><div class="titems">
+      <span class="tag">потоковая обработка</span><span class="tag">GPU-пул по приоритету</span><span class="tag">обмен с ведомствами</span></div></div>
+    <ul class="clean">
+      <li><b>Этика</b>: только открытые или синтетические данные, маскирование, роли — кандидаты, решение всегда за человеком</li>
+      <li>Система не содержит функций, помогающих организовывать схемы</li>
+    </ul>
+    <p class="footer">SafeNet KZ: находим признаки схем раньше, чем пострадают люди.</p>
+    <div class="num">9</div>
+  </section>
+
+</div>
+</body>
+</html>
