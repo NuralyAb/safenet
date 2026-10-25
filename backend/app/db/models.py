@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -186,6 +186,54 @@ class AppSetting(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(default=_utcnow, onupdate=_utcnow)
+
+
+class MonitorSource(Base):
+    """A channel / account the SafeNet scheme monitor polls for new posts.
+
+    `connector` says how posts are fetched: `telegram_web` (public t.me/s preview) or
+    `demo` (the built-in synthetic demo sources). Counters are cumulative.
+    """
+    __tablename__ = "monitor_source"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    platform: Mapped[str] = mapped_column(String(32), index=True)    # telegram | instagram | tiktok | youtube
+    handle: Mapped[str] = mapped_column(String(256))
+    title: Mapped[str] = mapped_column(String(256), default="")
+    connector: Mapped[str] = mapped_column(String(32), default="telegram_web")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    interval_seconds: Mapped[int] = mapped_column(Integer, default=300)
+    added_by: Mapped[str] = mapped_column(String(128), default="")
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    last_polled_ts: Mapped[float] = mapped_column(Float, default=0.0)
+    cursor: Mapped[int] = mapped_column(Integer, default=0)          # demo: posts emitted so far
+    scanned: Mapped[int] = mapped_column(Integer, default=0)
+    flagged: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str] = mapped_column(String(256), default="")
+
+
+class MonitorEvent(Base):
+    """One post the monitor checked (the live feed). Score ≥ 40 → also in the review queue."""
+    __tablename__ = "monitor_event"
+    __table_args__ = (UniqueConstraint("source_id", "external_id", name="uq_monitor_event_post"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(Integer, index=True)
+    external_id: Mapped[str] = mapped_column(String(128))
+    platform: Mapped[str] = mapped_column(String(32))
+    author: Mapped[str] = mapped_column(String(256))
+    url: Mapped[str] = mapped_column(Text, default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    views: Mapped[int] = mapped_column(Integer, default=0)
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    threat_level: Mapped[str] = mapped_column(String(16), default="LOW")
+    track: Mapped[str] = mapped_column(String(16), default="")
+    lang: Mapped[str] = mapped_column(String(16), default="")
+    flagged: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    signals: Mapped[list] = mapped_column(JSON, default=list)        # [{label, quote, contribution}]
+    breakdown: Mapped[list] = mapped_column(JSON, default=list)      # full breakdown (flagged only)
+    content_id: Mapped[str] = mapped_column(String(64), default="")  # review-queue row (flagged only)
+    created_ts: Mapped[float] = mapped_column(Float, index=True)
 
 
 class LicensedEntity(Base):

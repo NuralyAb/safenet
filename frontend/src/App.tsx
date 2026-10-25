@@ -22,14 +22,15 @@ import { CheckView } from "./features/safenet/CheckView";
 import { MetricsView } from "./features/safenet/MetricsView";
 import { CampaignsView } from "./features/safenet/CampaignsView";
 import { InsightsView } from "./features/safenet/InsightsView";
+import { MonitorView } from "./features/safenet/MonitorView";
 import { TopProgress } from "./components/TopProgress";
 import { NotificationToasts } from "./features/notifications/NotificationToasts";
 import { useCollectionAutoRefresh } from "./features/collection/collectionStore";
 import { AutoCollectControl } from "./features/watchlist/AutoCollectControl";
 
-type View = "dashboard" | "check" | "campaigns" | "insights" | "hunter" | "investigation" | "dossier" | "radar" | "scan" | "analyze" | "materials" | "triage" | "watchlist" | "graph" | "flow" | "metrics" | "actions" | "settings";
+type View = "dashboard" | "monitor" | "check" | "campaigns" | "insights" | "hunter" | "investigation" | "dossier" | "radar" | "scan" | "analyze" | "materials" | "triage" | "watchlist" | "graph" | "flow" | "metrics" | "actions" | "settings";
 
-type NavGroup = "Обзор" | "Проверка" | "Источники" | "Очередь" | "Расследование" | "Качество" | "Система";
+type NavGroup = "Обзор" | "Выявление" | "Источники" | "Очередь" | "Расследование" | "Качество" | "Система";
 
 const NAV: {
   id: View;
@@ -46,7 +47,12 @@ const NAV: {
     desc: "Сводка по трём трекам: платные розыгрыши, скрытая реклама онлайн-казино, финансовые пирамиды. Система показывает признаки возможного нарушения и уровень риска — законность проверяет специалист.",
   },
   {
-    id: "check", label: "Проверка контента", group: "Проверка", icon: SearchIcon, hot: true,
+    id: "monitor", label: "Мониторинг схем", group: "Выявление", icon: EyeIcon, hot: true,
+    title: "Мониторинг схем",
+    desc: "Система сама обходит источники — Telegram-каналы, аккаунты Instagram, TikTok и YouTube — и проверяет каждый новый пост по трём трекам. Находки с цитатами сразу попадают в ленту и в очередь аналитика. Запуск и остановка — только кнопкой.",
+  },
+  {
+    id: "check", label: "Проверка контента", group: "Выявление", icon: SearchIcon, hot: true,
     title: "Проверка контента",
     desc: "Пост, скриншот, транскрипт эфира, видео или целая группа (экспорт Telegram/WhatsApp). Русский, казахский, транслит и сленг; обфускация (к@зино, К А З И Н О, эмодзи) снимается автоматически. Для каждого признака — дословная цитата и вклад в балл.",
   },
@@ -66,8 +72,8 @@ const NAV: {
     desc: "Демонстрация работы на потоке: материалы анализируются на лету, а отчёт собирается в реальном времени.",
   },
   {
-    id: "watchlist", label: "Мониторинг", group: "Источники", icon: EyeIcon,
-    title: "Постоянный мониторинг",
+    id: "watchlist", label: "Автосбор видео", group: "Источники", icon: EyeIcon,
+    title: "Автосбор видео",
     desc: "Аккаунты, каналы и ключевые слова под наблюдением. Планировщик периодически собирает новые публикации и оценивает их.",
   },
   {
@@ -122,7 +128,7 @@ const NAV: {
   },
 ];
 
-const NAV_GROUPS: NavGroup[] = ["Обзор", "Проверка", "Источники", "Очередь", "Расследование", "Качество", "Система"];
+const NAV_GROUPS: NavGroup[] = ["Обзор", "Выявление", "Источники", "Очередь", "Расследование", "Качество", "Система"];
 
 export function App() {
   const { isAuthed, role, logout } = useAuth();
@@ -201,6 +207,7 @@ export function App() {
         {view === "hunter" && <HunterView onInvestigate={openDossier} />}
         {view === "radar" && <ScamRadarView onInvestigate={openDossier} />}
         {view === "scan" && <LiveScanView onInvestigate={openDossier} />}
+        {view === "monitor" && <MonitorView onOpenDossier={openDossier} />}
         {(view === "check" || view === "analyze") && <CheckView onOpenDossier={openDossier} />}
         {view === "materials" && <MaterialsView onInvestigate={openDossier} />}
         {view === "metrics" && <MetricsView />}

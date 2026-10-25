@@ -1,5 +1,6 @@
 """SafeNet KZ: metrics, methodology, track summary and demo data."""
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -153,3 +154,89 @@ def demo_seed(reset: bool = False, principal: Principal = Depends(require_role(R
 
     record_action(session, principal.subject, "safenet.demo_seed", f"reset={reset}")
     return seed(session, reset=reset)
+
+
+# ---- «Мониторинг схем»: proactive detection, started / stopped only by the analyst
+class MonitorSourceIn(BaseModel):
+    target: str                       # @channel or t.me/channel (public Telegram)
+
+
+class MonitorSourcePatch(BaseModel):
+    active: bool
+
+
+@router.get("/monitor/status")
+def monitor_status(principal: Principal = Depends(require_role(Role.ANALYST)),
+                   session: Session = Depends(get_session)) -> dict:
+    from app.services.safenet import monitor
+    return monitor.status(session)
+
+
+@router.get("/monitor/feed")
+def monitor_feed(after: int = 0, since: float = 0.0, flagged: bool = True, track: str = "", limit: int = 40,
+                 principal: Principal = Depends(require_role(Role.ANALYST)),
+                 session: Session = Depends(get_session)) -> list[dict]:
+    from app.services.safenet import monitor
+    return monitor.feed(session, after=after, since=since, flagged_only=flagged, track=track, limit=limit)
+
+
+@router.post("/monitor/start")
+def monitor_start(principal: Principal = Depends(require_role(Role.ANALYST)),
+                  session: Session = Depends(get_session)) -> dict:
+    """«Запустить мониторинг»: turn it on and start the polling loop right away."""
+    from app.db.models import MonitorSource
+    from app.services.safenet import monitor
+
+    if session.query(MonitorSource).count() == 0:
+        monitor.seed_demo_sources(session)
+    monitor.set_enabled(session, True)
+    record_action(session, principal.subject, "safenet.monitor.start", "")
+    try:
+        from app.workers.tasks import collect_safenet_monitor
+        collect_safenet_monitor.delay()
+    except Exception as exc:  # noqa: BLE001 — broker down: setting is on, beat will pick it up
+        raise HTTPException(status_code=503, detail=f"Очередь задач недоступна: {exc}") from exc
+    return monitor.status(session)
+
+
+@router.post("/monitor/stop")
+def monitor_stop(principal: Principal = Depends(require_role(Role.ANALYST)),
+                 session: Session = Depends(get_session)) -> dict:
+    """«Остановить»: the loop exits after the current tick (≤ 2 s)."""
+    from app.services.safenet import monitor
+
+    monitor.set_enabled(session, False)
+    record_action(session, principal.subject, "safenet.monitor.stop", "")
+    return monitor.status(session)
+
+
+@router.post("/monitor/sources")
+def monitor_add_source(body: MonitorSourceIn, principal: Principal = Depends(require_role(Role.ANALYST)),
+                       session: Session = Depends(get_session)) -> dict:
+    """Add a public Telegram channel to the monitor (WhatsApp has no public feed)."""
+    from app.services.safenet import monitor
+
+    if "whatsapp" in body.target.lower() or "wa.me" in body.target.lower():
+        raise HTTPException(status_code=422, detail="WhatsApp не мониторится: у него нет публичной ленты. "
+                                                    "Экспорт группы проверяется во вкладке «Группа / чат».")
+    try:
+        row = monitor.add_telegram_channel(session, body.target, principal.subject)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    record_action(session, principal.subject, "safenet.monitor.add_source", row.handle)
+    return {"id": row.id, "handle": row.handle}
+
+
+@router.patch("/monitor/sources/{source_id}")
+def monitor_toggle_source(source_id: int, body: MonitorSourcePatch,
+                          principal: Principal = Depends(require_role(Role.ANALYST)),
+                          session: Session = Depends(get_session)) -> dict:
+    from app.db.models import MonitorSource
+
+    row = session.get(MonitorSource, source_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Источник не найден")
+    row.active = body.active
+    session.commit()
+    record_action(session, principal.subject, "safenet.monitor.toggle_source", f"{row.handle}={body.active}")
+    return {"id": row.id, "active": row.active}

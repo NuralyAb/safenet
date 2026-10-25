@@ -370,3 +370,46 @@ def sweep_watchlist(force: bool = False) -> int:
         return dispatched
     finally:
         gen.close()
+
+
+MONITOR_LOCK = "safenet:monitor:loop"
+
+
+@celery_app.task(name="app.workers.tasks.collect_safenet_monitor")
+def collect_safenet_monitor(max_seconds: int = 1500, pause: float = 2.0) -> int:
+    """«Мониторинг схем» loop: while the analyst keeps it on, poll sources every ~2 s.
+
+    Started by «Запустить мониторинг» and re-dispatched by beat every 30 s; a Redis
+    lock keeps exactly one loop alive. Exits at once when the monitor is stopped.
+    Returns the number of posts checked.
+    """
+    import time
+
+    import redis
+
+    from app.core.config import settings
+    from app.db.session import get_session
+    from app.services.safenet import monitor
+
+    r = redis.Redis.from_url(settings.redis_url)
+    if not r.set(MONITOR_LOCK, "1", nx=True, ex=30):
+        return 0                                        # another loop is already running
+    checked, t_end = 0, time.time() + max_seconds
+    try:
+        while time.time() < t_end:
+            gen = get_session()
+            session = next(gen)
+            try:
+                if not monitor.is_enabled(session):
+                    break
+                checked += monitor.tick(session, graph=True)["scanned"]
+            except Exception:  # noqa: BLE001 — a failed tick must not kill the monitor
+                log.exception("scheme monitor tick failed")
+                session.rollback()
+            finally:
+                gen.close()
+            r.expire(MONITOR_LOCK, 30)
+            time.sleep(pause)
+    finally:
+        r.delete(MONITOR_LOCK)
+    return checked

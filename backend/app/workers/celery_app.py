@@ -36,4 +36,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.sweep_watchlist",
         "schedule": 60.0,
     },
+    # «Мониторинг схем»: keeps the monitor loop alive while it is on (no-op when off)
+    "safenet-monitor": {
+        "task": "app.workers.tasks.collect_safenet_monitor",
+        "schedule": 30.0,
+    },
 }

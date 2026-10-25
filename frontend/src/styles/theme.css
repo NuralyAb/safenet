@@ -928,3 +928,51 @@ tr.clickable:hover { background: var(--panel-2); }
 .sn-track-bars .bar-tag { min-width: 170px; white-space: nowrap; }
 .sn-track-bars .bar-row { grid-template-columns: 170px 1fr 34px; }
 .sn-track-bars .bar-tag { min-width: 0; }
+
+/* ---- «Мониторинг схем» ------------------------------------------------------ */
+.mon-control.on { border-color: var(--low-border); box-shadow: 0 0 0 3px var(--low-bg); }
+.mon-control-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; }
+.mon-state { display: flex; align-items: center; gap: 14px; }
+.mon-state-title { font-size: var(--fs-18); font-weight: 700; }
+.mon-pulse { width: 14px; height: 14px; border-radius: 50%; background: var(--text-faint); flex: none; }
+.mon-pulse.on { background: var(--low); animation: mon-pulse 1.6s ease-out infinite; }
+@keyframes mon-pulse { 0% { box-shadow: 0 0 0 0 var(--low-border); } 100% { box-shadow: 0 0 0 12px transparent; } }
+.mon-tracks .sn-tile { text-align: left; cursor: pointer; }
+.mon-tracks .sn-tile.selected { box-shadow: 0 0 0 2px var(--accent-border); }
+.mon-spark { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin-top: 10px; }
+.mon-spark span { flex: 1; border-radius: 2px; background: currentColor; opacity: .75; min-height: 2px; transition: height .4s var(--ease); }
+.mon-spark span.zero { opacity: .15; }
+.sn-track-lottery .mon-spark { color: var(--tr-lottery); }
+.sn-track-casino .mon-spark { color: var(--tr-casino); }
+.sn-track-pyramid .mon-spark { color: var(--tr-pyramid); }
+.mon-cols { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: var(--sp-4); align-items: start; }
+@media (max-width: 1100px) { .mon-cols { grid-template-columns: 1fr; } }
+.mon-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.mon-feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.mon-item { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 12px 14px; background: var(--panel);
+  animation: fade .35s var(--ease); }
+.mon-item.fresh { animation: mon-fresh 1.8s var(--ease); }
+@keyframes mon-fresh { 0% { background: var(--accent-weak); transform: translateY(-6px); opacity: 0; }
+  15% { opacity: 1; transform: none; } 100% { background: var(--panel); } }
+.mon-item.clean { opacity: .62; }
+.mon-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mon-spacer { flex: 1; }
+.mon-author { font-weight: 650; }
+.mon-platform { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: var(--r-full); border: 1px solid var(--border);
+  color: var(--text-2); background: var(--panel-2); }
+.mon-platform.p-telegram { color: #2481cc; border-color: rgba(36, 129, 204, .35); }
+.mon-platform.p-instagram { color: #c13584; border-color: rgba(193, 53, 132, .35); }
+.mon-platform.p-tiktok { color: var(--text); }
+.mon-platform.p-youtube { color: #e62117; border-color: rgba(230, 33, 23, .35); }
+.mon-text { margin-top: 8px; font-size: var(--fs-14); line-height: 1.5; }
+.mon-signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.mon-sig { font-size: 12px; padding: 3px 8px; border-radius: var(--r-md); background: var(--panel-2); border: 1px solid var(--border);
+  color: var(--text-2); max-width: 100%; }
+.mon-sig b { color: var(--critical); }
+.mon-explain { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.mon-sources td { vertical-align: top; }
+.mon-sources tr.off { opacity: .5; }
+.mon-src-name { font-weight: 650; }
+.mon-hits { color: var(--critical); }
+.mon-add { gap: 8px; margin-top: 12px; }
+.mon-add .input { flex: 1; min-width: 0; }

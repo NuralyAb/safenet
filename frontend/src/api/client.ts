@@ -170,6 +170,51 @@ export interface Campaign {
   priority: number;
 }
 
+export interface MonitorEvent {
+  id: number;
+  source_id: number;
+  platform: string;
+  author: string;
+  title: string;
+  url: string;
+  text: string;
+  views: number;
+  score: number;
+  threat_level: ThreatLevel;
+  track: Track;
+  lang: string;
+  flagged: boolean;
+  signals: { label: string; quote: string; contribution: number }[];
+  breakdown: BreakdownLine[];
+  content_id: string;
+  ts: number;
+}
+
+export interface MonitorSourceRow {
+  id: number;
+  platform: string;
+  handle: string;
+  title: string;
+  connector: "telegram_web" | "demo";
+  active: boolean;
+  interval_seconds: number;
+  scanned: number;
+  flagged: number;
+  last_polled_ts: number | null;
+  last_error: string;
+}
+
+export interface MonitorStatus {
+  enabled: boolean;
+  started_at: number | null;
+  scanned: number;
+  flagged: number;
+  by_track: Record<"lottery" | "casino" | "pyramid", { high: number; medium: number }>;
+  timeline: { minute: number; lottery: number; casino: number; pyramid: number; clean: number }[];
+  sources: MonitorSourceRow[];
+  active_sources: number;
+}
+
 export interface BulkResult {
   rows: number;
   flagged: number;
@@ -618,6 +663,15 @@ export const api = {
   getSafeNetSummary: () => http<SafeNetSummary>("/safenet/summary"),
   getCampaigns: () => http<Campaign[]>("/safenet/campaigns"),
   getInsights2: () => http<Insights>("/safenet/insights"),
+  getMonitorStatus: () => http<MonitorStatus>("/safenet/monitor/status"),
+  getMonitorFeed: (after = 0, flagged = true, track = "", since = 0) =>
+    http<MonitorEvent[]>(`/safenet/monitor/feed?after=${after}&since=${since}&flagged=${flagged}&track=${encodeURIComponent(track)}&limit=40`),
+  startMonitor: () => http<MonitorStatus>("/safenet/monitor/start", { method: "POST" }),
+  stopMonitor: () => http<MonitorStatus>("/safenet/monitor/stop", { method: "POST" }),
+  addMonitorSource: (target: string) =>
+    http<{ id: number; handle: string }>("/safenet/monitor/sources", { method: "POST", body: JSON.stringify({ target }) }),
+  toggleMonitorSource: (id: number, active: boolean) =>
+    http<{ id: number; active: boolean }>(`/safenet/monitor/sources/${id}`, { method: "PATCH", body: JSON.stringify({ active }) }),
   bulkCheck: (opts: { file?: File; demo?: number; persist?: boolean }) => {
     const fd = new FormData();
     if (opts.file) fd.append("file", opts.file);
