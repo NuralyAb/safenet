@@ -1,0 +1,132 @@
+# AFM — AI Platform for Fraud Intelligence & Social Media Investigation
+# On-prem stack. All data stays inside the perimeter (law-enforcement deployment).
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-afm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-afm}
+      POSTGRES_DB: ${POSTGRES_DB:-afm}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports: ["5432:5432"]
+    networks: [default, internal]   # processing-worker (internal-only) writes Content/ContentRisk
+
+  neo4j:
+    # Fraud Graph + Graph Data Science (community detection, centrality)
+    image: neo4j:5-enterprise
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-afm_neo4j}
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_PLUGINS: '["graph-data-science"]'
+    volumes:
+      - neo4j_data:/data
+    ports: ["7474:7474", "7687:7687"]
+    networks: [default, internal]
+
+  qdrant:
+    # Scam Fingerprint vector store (named vectors: text/visual/audio/face)
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports: ["6333:6333"]
+    networks: [default, internal]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    networks: [default, internal]
+
+  minio:
+    # Evidence store. raw/ bucket + WORM evidence/ bucket (object-lock) for chain of custody.
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-afm}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-afm_minio_secret}
+    volumes:
+      - minio_data:/data
+    ports: ["9000:9000", "9001:9001"]
+    networks: [default, internal]
+
+  temporal:
+    # Durable, replayable AI Investigator workflows (auditable for evidence chain)
+    image: temporalio/auto-setup:latest
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-afm}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-afm}
+      POSTGRES_SEEDS: postgres
+    depends_on: [postgres]
+    ports: ["7233:7233"]
+
+  backend:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    depends_on: [postgres, neo4j, qdrant, redis, minio]
+    ports: ["8000:8000"]
+    volumes: ["./backend:/app"]
+    # Explicit resolvers — Docker Desktop's embedded DNS intermittently fails with
+    # "[Errno -5] No address associated with hostname", breaking yt-dlp downloads.
+    dns: ["8.8.8.8", "1.1.1.1"]
+
+  collector-worker:
+    # Collection only. Has internet egress to fetch from sources (SSRF-guarded in code).
+    build: ./backend
+    command: celery -A app.workers.celery_app worker -l info -Q collect
+    env_file: .env
+    depends_on: [backend, redis]
+    volumes: ["./backend:/app"]
+    dns: ["8.8.8.8", "1.1.1.1"]
+
+  processing-worker:
+    # Multimodal processing of UNTRUSTED media (ffmpeg/Whisper/PIL = CVE surface).
+    # PROTOTYPE: needs egress because AI runs on EXTERNAL APIs (OpenAI Whisper/vision/
+    # embeddings). PRODUCTION (AI_PROVIDER=local): restore `networks: [internal]` so
+    # this worker has NO outbound internet (SSRF/exfil defense) — local AI is internal.
+    build: ./backend
+    # --concurrency=2 + prefetch=1: cap simultaneous OpenAI calls so a 10-video
+    # fan-out doesn't trip the provider's 429 rate limit (the provider also retries).
+    command: celery -A app.workers.celery_app worker -l info -Q process,fingerprint --concurrency=2 --prefetch-multiplier=1
+    env_file: .env
+    depends_on: [backend, redis]
+    volumes: ["./backend:/app"]
+    dns: ["8.8.8.8", "1.1.1.1"]
+
+  beat:
+    # Celery beat — continuous monitoring: periodically sweeps the watchlist.
+    build: ./backend
+    command: celery -A app.workers.celery_app beat -l info
+    env_file: .env
+    depends_on: [redis, backend]
+    volumes: ["./backend:/app"]
+
+  investigator:
+    # Temporal worker hosting the AI Investigator workflow + activities
+    build: ./backend
+    command: python -m app.workflows.worker
+    env_file: .env
+    depends_on: [temporal, backend]
+    volumes: ["./backend:/app"]
+    restart: unless-stopped   # self-heal if Temporal isn't ready yet on first boot
+
+  frontend:
+    build: ./frontend
+    command: npm run dev -- --host
+    depends_on: [backend]
+    ports: ["5173:5173"]
+    volumes: ["./frontend:/app", "/app/node_modules"]
+
+networks:
+  default:
+  internal:
+    # No gateway to the outside — containers attached ONLY here have no internet egress.
+    internal: true
+
+volumes:
+  pg_data:
+  neo4j_data:
+  qdrant_data:
+  minio_data:

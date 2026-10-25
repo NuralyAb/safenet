@@ -1,0 +1,63 @@
+name: security-gate
+
+# Enforces the SecOps gate on every change. Fails the build on critical findings
+# (scanners exit 2 = critical, 1 = high). See docs/security/security-audit.md.
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: SAST (code vulnerabilities)
+        run: |
+          python .claude/skills/senior-secops/scripts/security_scanner.py backend --severity high
+          python .claude/skills/senior-secops/scripts/security_scanner.py frontend/src --severity high
+
+      - name: Secret scan
+        # Scope to first-party source (mirrors SAST). Excludes vendored skills in
+        # .claude/ and npm lockfiles (package-lock hashes false-positive as API keys).
+        run: |
+          python .claude/skills/senior-security/scripts/secret_scanner.py backend
+          python .claude/skills/senior-security/scripts/secret_scanner.py frontend/src
+
+      - name: Dependency CVEs
+        run: |
+          python .claude/skills/senior-secops/scripts/vulnerability_assessor.py backend --severity critical
+          python .claude/skills/senior-secops/scripts/vulnerability_assessor.py frontend --severity critical
+
+  backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest   # unit + contract (integration tests excluded by default in pytest.ini)
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run build   # tsc -b && vite build — type-check + bundle
+      - run: npm test        # vitest component tests
