@@ -78,14 +78,28 @@ def _t_stats(session, _args) -> dict:
     return {"reply": context_line(session), "action": {"type": "navigate", "view": "dashboard"}}
 
 
+_LEVEL_RU = {"HIGH": "высокий", "CRITICAL": "высокий", "MEDIUM": "средний", "LOW": "низкий"}
+_TRACK_RU = {"lottery": "платный розыгрыш", "casino": "скрытое казино", "pyramid": "пирамида"}
+
+
+def _fmt_views(n: int) -> str:
+    n = int(n or 0)
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f} млн"
+    if n >= 1_000:
+        return f"{n / 1_000:.0f} тыс."
+    return str(n)
+
+
 def _t_top_materials(session, args) -> dict:
     from app.db import risk_repo
     limit = int(args.get("limit") or 5)
     rows = risk_repo.list_content_for_triage(session)[:limit]
     if not rows:
-        return {"reply": "Материалов пока нет — запусти сбор или «Анализ видео»."}
-    lines = [f"{i+1}. {r.author or r.content_id[:10]} — риск {r.score} ({r.threat_level}), "
-             f"охват {r.views}" for i, r in enumerate(rows)]
+        return {"reply": "Материалов пока нет — проверьте пост, скриншот или группу."}
+    lines = [f"{i+1}. {r.author or r.content_id[:10]} — {_TRACK_RU.get(r.track, 'без трека')}, "
+             f"риск {r.score} ({_LEVEL_RU.get(r.threat_level, r.threat_level)}), охват {_fmt_views(r.views)}"
+             for i, r in enumerate(rows)]
     return {"reply": "Топ материалов по приоритету:\n" + "\n".join(lines),
             "action": {"type": "navigate", "view": "materials"}}
 
@@ -95,16 +109,25 @@ def _t_account_summary(session, args) -> dict:
     acc = (args.get("account") or "").strip()
     if not acc:
         return {"reply": "Укажи аккаунт, например: сводка по @handle."}
-    risks = session.query(ContentRisk).filter_by(author=acc).all()
-    a = session.query(RiskAssessment).filter_by(target=acc).one_or_none()
+    # accounts are stored both as «@handle» and «handle» depending on the source
+    variants = list(dict.fromkeys([acc, acc.lstrip("@"), "@" + acc.lstrip("@")]))
+    risks = session.query(ContentRisk).filter(ContentRisk.author.in_(variants)).all()
+    a = session.query(RiskAssessment).filter(RiskAssessment.target.in_(variants)).first()
     if not risks and a is None:
-        return {"reply": f"По {acc} данных нет. Собери его видео или проанализируй ролик."}
+        return {"reply": f"По {acc} данных нет. Проверьте его посты или соберите материалы."}
+    if risks:
+        acc = risks[0].author
     scores = [r.score for r in risks]
-    parts = [f"{acc}: видео={len(risks)}"]
+    tracks = sorted({_TRACK_RU.get(r.track, "") for r in risks if r.track and r.score >= 40} - {""})
+    parts = [f"{acc}: материалов — {len(risks)}"]
     if scores:
-        parts.append(f"макс. риск={max(scores)}, суммарный охват={sum(r.views for r in risks)}")
+        top = max(risks, key=lambda r: r.score)
+        parts.append(f"максимальный риск {top.score} ({_LEVEL_RU.get(top.threat_level, top.threat_level)})")
+        parts.append(f"суммарный охват {_fmt_views(sum(r.views for r in risks))}")
+    if tracks:
+        parts.append("треки: " + ", ".join(tracks))
     if a:
-        parts.append(f"оценка аккаунта={a.score} ({a.threat_level})")
+        parts.append(f"оценка аккаунта {a.score} ({_LEVEL_RU.get(a.threat_level, a.threat_level)})")
     return {"reply": ", ".join(parts) + ".",
             "action": {"type": "navigate", "view": "dossier", "target": acc}}
 
@@ -169,8 +192,10 @@ def run(session, message: str, history: list[tuple[str, str]] | None = None) -> 
     try:
         choice = _choose_mock(message) if rc.get_value("ai_provider") == "mock" \
             else _choose_llm(message, history or [])
-    except Exception:  # noqa: BLE001 — selection failure -> plain chat
+    except Exception:  # noqa: BLE001 — LLM down / no quota -> deterministic router
         choice = {"tool": None, "args": {}}
+    if not choice.get("tool"):                 # the keyword router still understands commands
+        choice = _choose_mock(message)
 
     tool = choice.get("tool")
     if tool in _TOOLS:

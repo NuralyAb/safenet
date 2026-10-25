@@ -42,19 +42,22 @@ def _f1(p: float | None, r: float | None) -> float | None:
     return round(2 * p * r / (p + r), 4)
 
 
-def predict(sample: dict, *, llm=None) -> dict:
+def predict(sample: dict, *, llm=None, use_model: bool = False) -> dict:
     kind = sample.get("kind", "post")
     source = {"ocr": "ocr", "stream": "stream", "chat": "chat"}.get(kind, "text")
-    a, _ = analyze_segments([(source, sample["text"])], llm=llm)
+    a, _ = analyze_segments([(source, sample["text"])], llm=llm, use_model=use_model)
     return {"score": a.score, "level": a.threat_level.value, "track": a.track or "none",
             "signals": [b["factor"] for b in a.breakdown if b.get("kind") == "signal"]}
 
 
-def evaluate(samples: list[dict], *, threshold: int = FLAG_THRESHOLD, llm=None) -> dict:
+def evaluate(samples: list[dict], *, threshold: int = FLAG_THRESHOLD, llm=None,
+             use_model: bool = False) -> dict:
+    """`use_model=False` = deterministic rules only; True = rules + learned layer (model.py,
+    trained on dev/test/holdout — metrics on those sets are then training-set numbers)."""
     t0 = time.perf_counter()
     rows = []
     for s in samples:
-        p = predict(s, llm=llm)
+        p = predict(s, llm=llm, use_model=use_model)
         flagged = p["score"] >= threshold
         rows.append({**s, "pred_score": p["score"], "pred_level": p["level"],
                      "pred_track": p["track"] if flagged else "none", "flagged": flagged,
@@ -135,11 +138,12 @@ def evaluate(samples: list[dict], *, threshold: int = FLAG_THRESHOLD, llm=None) 
     }
 
 
-_CACHE: dict[str, dict] = {}
+_CACHE: dict[tuple[str, bool], dict] = {}
 
 
-def cached_report(name: str = "test") -> dict:
-    """Rules-only report for a bundled dataset (cached per process — data is static)."""
-    if name not in _CACHE:
-        _CACHE[name] = evaluate(load(name))
-    return _CACHE[name]
+def cached_report(name: str = "test", use_model: bool = False) -> dict:
+    """Report for a bundled dataset (cached per process — data is static)."""
+    key = (name, use_model)
+    if key not in _CACHE:
+        _CACHE[key] = evaluate(load(name), use_model=use_model)
+    return _CACHE[key]

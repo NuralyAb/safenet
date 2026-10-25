@@ -75,9 +75,18 @@ def test_wrong_password_is_401(client_and_secret):
     assert _login(client, secret, password="wrong").status_code == 401
 
 
-def test_wrong_totp_is_401(client_and_secret):
+def test_wrong_totp_is_401(client_and_secret, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "require_mfa", True)      # independent of the local .env
     client, secret = client_and_secret
     assert _login(client, secret, code="000000").status_code == 401
+
+
+def test_totp_not_checked_when_mfa_disabled(client_and_secret, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "require_mfa", False)     # prototype login without TOTP
+    client, secret = client_and_secret
+    assert _login(client, secret, code="000000").status_code == 200
 
 
 def test_unknown_user_is_401(client_and_secret):

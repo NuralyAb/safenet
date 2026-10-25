@@ -20,11 +20,14 @@ import { SettingsView } from "./features/settings/SettingsView";
 import { ChatWidget } from "./features/assistant/ChatWidget";
 import { CheckView } from "./features/safenet/CheckView";
 import { MetricsView } from "./features/safenet/MetricsView";
+import { CampaignsView } from "./features/safenet/CampaignsView";
+import { InsightsView } from "./features/safenet/InsightsView";
 import { TopProgress } from "./components/TopProgress";
 import { NotificationToasts } from "./features/notifications/NotificationToasts";
 import { useCollectionAutoRefresh } from "./features/collection/collectionStore";
+import { AutoCollectControl } from "./features/watchlist/AutoCollectControl";
 
-type View = "dashboard" | "check" | "hunter" | "investigation" | "dossier" | "radar" | "scan" | "analyze" | "materials" | "triage" | "watchlist" | "graph" | "flow" | "metrics" | "actions" | "settings";
+type View = "dashboard" | "check" | "campaigns" | "insights" | "hunter" | "investigation" | "dossier" | "radar" | "scan" | "analyze" | "materials" | "triage" | "watchlist" | "graph" | "flow" | "metrics" | "actions" | "settings";
 
 type NavGroup = "Обзор" | "Проверка" | "Источники" | "Очередь" | "Расследование" | "Качество" | "Система";
 
@@ -78,6 +81,11 @@ const NAV: {
     desc: "Объекты (аккаунты) по убыванию риска. Решение аналитика сохраняется и не сбрасывается при повторной оценке.",
   },
   {
+    id: "campaigns", label: "Кампании", group: "Расследование", icon: NetworkIcon, hot: true,
+    title: "Кампании — сети аккаунтов",
+    desc: "Схема редко живёт в одном аккаунте: несколько «гив»-страниц собирают деньги на один Kaspi-номер, блогеры раздают один промокод, кураторы копируют один текст. Здесь аккаунты и группы объединены в сети по общим идентификаторам и шаблонам и отсортированы по риску × охвату — начинайте проверку с самой крупной схемы.",
+  },
+  {
     id: "dossier", label: "Досье", group: "Расследование", icon: DossierIcon,
     title: "Досье аккаунта",
     desc: "Все материалы аккаунта, общий паттерн признаков, идентификаторы (Kaspi-номера, карты, промокоды, каналы, домены) и связанные аккаунты.",
@@ -96,6 +104,11 @@ const NAV: {
     id: "metrics", label: "Метрики и методика", group: "Качество", icon: BoltIcon,
     title: "Качество: метрики и методика",
     desc: "Precision, recall и доля ложных срабатываний на размеченных выборках (включая независимую слепую), срезы по языкам и обфускации, матрица ошибок. Ниже — все признаки, веса и правила расчёта риска.",
+  },
+  {
+    id: "insights", label: "Адаптация", group: "Качество", icon: RadarIcon,
+    title: "Адаптация: новые формулировки и обратная связь",
+    desc: "Схемы быстро меняют форму. Здесь система сама находит слова, которые часто встречаются в помеченных материалах, но ещё не покрыты методикой, и показывает, какие признаки аналитики чаще всего отклоняют как ложные. Это цикл улучшения на реальной работе, а не на тестовых данных.",
   },
   {
     id: "actions", label: "Действия", group: "Система", icon: BoltIcon,
@@ -162,6 +175,8 @@ export function App() {
           </nav>
         ))}
 
+        <div className="sidebar-autocollect"><AutoCollectControl compact /></div>
+
         <div className="sidebar-foot">
           <span className="role"><span className="pulse-dot" />{role}</span>
           <div className="spacer" />
@@ -189,6 +204,8 @@ export function App() {
         {(view === "check" || view === "analyze") && <CheckView onOpenDossier={openDossier} />}
         {view === "materials" && <MaterialsView onInvestigate={openDossier} />}
         {view === "metrics" && <MetricsView />}
+        {view === "campaigns" && <CampaignsView onOpenDossier={openDossier} />}
+        {view === "insights" && <InsightsView />}
         {view === "triage" && <TriageView />}
         {view === "watchlist" && <WatchlistView />}
         {view === "graph" && <GraphView />}

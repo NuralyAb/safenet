@@ -32,12 +32,12 @@ export const TRACK_RU: Record<string, string> = {
 export const SOURCE_RU: Record<string, string> = {
   text: "текст поста", caption: "подпись", transcript: "речь (транскрипт)", ocr: "текст на изображении",
   stream: "транскрипт эфира", chat: "сообщение чата", llm: "семантический анализ (LLM)",
-  vision: "визуальные теги", group: "анализ группы",
+  vision: "визуальные теги", group: "анализ группы", model: "обучаемая модель",
 };
 
 export const VIEW_RU: Record<string, string> = {
   deobf: "скрыто подменой символов", collapsed: "скрыто разрядкой букв",
-  translit: "написано транслитом", emoji: "закодировано эмодзи",
+  translit: "написано транслитом", emoji: "закодировано эмодзи", numwords: "числа прописью",
 };
 
 export const LANG_RU: Record<string, string> = {
@@ -73,6 +73,8 @@ export interface BreakdownLine {
   detail?: string;
   evidence_ids?: string[];
   quotes?: SignalQuote[];
+  without?: number;          // overall score if this sign were absent («что если»)
+  level_without?: ThreatLevel;
 }
 
 export interface SafeNetRisk {
@@ -118,6 +120,8 @@ export interface MetricBlock {
 export interface MetricsReport {
   dataset: string;
   title: string;
+  mode?: string;
+  training_set?: boolean;
   available: { id: string; title: string }[];
   n: number;
   positives: number;
@@ -146,6 +150,48 @@ export interface Methodology {
   extra: Record<string, string>;
   disclaimer: string;
   gates: string[];
+}
+
+export interface Campaign {
+  id: string;
+  accounts: { account: string; source: string; materials: number; max_score: number }[];
+  materials: number;
+  flagged: number;
+  total_views: number;
+  max_score: number;
+  avg_score: number;
+  track: string;
+  tracks: Record<string, number>;
+  platforms: string[];
+  shared: { kind: string; value: string; accounts: string[] }[];
+  first_seen: string | null;
+  last_seen: string | null;
+  top_materials: { content_risk_id: number; author: string; score: number; threat_level: ThreatLevel; text: string }[];
+  priority: number;
+}
+
+export interface BulkResult {
+  rows: number;
+  flagged: number;
+  persisted: number;
+  seconds: number;
+  items_per_second: number | null;
+  by_level: Record<string, number>;
+  by_track: Record<string, number>;
+  languages: Record<string, number>;
+  top: { row: number; author: string; score: number; threat_level: ThreatLevel; track: string; text: string; signals: string[] }[];
+}
+
+export interface Insights {
+  emerging: {
+    flagged_materials: number;
+    clean_materials: number;
+    terms: { term: string; flagged_materials: number; clean_materials: number; accounts: number; lift: number; track: string; example: string }[];
+  };
+  feedback: {
+    decisions: number; confirmed: number; dismissed: number; precision: number | null;
+    signals: { signal: string; label: string; decisions: number; confirmed: number; dismissed: number; precision: number | null }[];
+  };
 }
 
 export interface SafeNetSummary {
@@ -566,9 +612,19 @@ export const api = {
     if (opts.demo) fd.append("demo", opts.demo);
     return multipart<ChatAnalysis>("/analyze/chat", fd);
   },
-  getMetrics: (dataset = "blind") => http<MetricsReport>(`/safenet/metrics?dataset=${encodeURIComponent(dataset)}`),
+  getMetrics: (dataset = "blind2", model = true) =>
+    http<MetricsReport>(`/safenet/metrics?dataset=${encodeURIComponent(dataset)}&model=${model}`),
   getMethodology: () => http<Methodology>("/safenet/methodology"),
   getSafeNetSummary: () => http<SafeNetSummary>("/safenet/summary"),
+  getCampaigns: () => http<Campaign[]>("/safenet/campaigns"),
+  getInsights2: () => http<Insights>("/safenet/insights"),
+  bulkCheck: (opts: { file?: File; demo?: number; persist?: boolean }) => {
+    const fd = new FormData();
+    if (opts.file) fd.append("file", opts.file);
+    if (opts.demo) fd.append("demo", String(opts.demo));
+    fd.append("persist", String(opts.persist ?? true));
+    return multipart<BulkResult>("/safenet/bulk", fd);
+  },
   getDemoChats: () => http<{ id: string; file: string; title: string }[]>("/safenet/demo-chats"),
   demoSeed: (reset = false) =>
     http<{ posts: number; flagged: number; chats: { name: string; score: number; track: string }[]; graph: boolean }>(
@@ -607,6 +663,10 @@ export const api = {
   getSchedule: () => http<MonitoringSchedule>("/watchlist/schedule"),
   setSchedule: (body: { enabled?: boolean; interval_seconds?: number }) =>
     http<MonitoringSchedule>("/watchlist/schedule", { method: "PUT", body: JSON.stringify(body) }),
+  startAutoCollect: () =>
+    http<MonitoringSchedule & { dispatched: number }>("/watchlist/schedule/start", { method: "POST" }),
+  stopAutoCollect: () =>
+    http<MonitoringSchedule & { dispatched: number }>("/watchlist/schedule/stop", { method: "POST" }),
   getNotifications: (unreadOnly = true) =>
     http<WatchlistNotification[]>(`/watchlist/notifications?unread_only=${unreadOnly}`),
   readNotification: (id: number) =>

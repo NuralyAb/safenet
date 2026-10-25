@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type AnalysisResult, type ChatAnalysis } from "../../api/client";
-import { IdentifierList, RiskExplain } from "./RiskExplain";
+import { HighlightedText, IdentifierList, RiskExplain } from "./RiskExplain";
 import { ChatResult } from "./ChatResult";
+import { BulkCheck } from "./BulkCheck";
+import { printReport } from "./printReport";
 
-type Mode = "text" | "image" | "url" | "video" | "chat";
+type Mode = "text" | "image" | "url" | "video" | "chat" | "bulk";
 
 const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "text", label: "Текст", hint: "пост, подпись, транскрипт эфира, сообщение" },
@@ -12,6 +14,7 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "chat", label: "Группа / чат", hint: "экспорт Telegram (result.json) или WhatsApp (.txt)" },
   { id: "url", label: "Видео по ссылке", hint: "YouTube / TikTok / Instagram" },
   { id: "video", label: "Видеофайл", hint: "речь + кадры + текст на экране" },
+  { id: "bulk", label: "Массовая проверка", hint: "тысячи постов из CSV / JSONL / TXT за секунды" },
 ];
 
 const KINDS = [
@@ -171,6 +174,8 @@ export function CheckView({ onOpenDossier }: { onOpenDossier?: (account: string)
             </div>
           )}
 
+          {mode === "bulk" && <BulkCheck />}
+
           {pending && mode !== "text" && (
             <p className="muted small">
               {mode === "chat" ? "Разбор сообщений → признаки → шаблоны и роли участников → риск группы."
@@ -185,10 +190,21 @@ export function CheckView({ onOpenDossier }: { onOpenDossier?: (account: string)
         <section className="card fade-in">
           <div className="card-head">
             <h2>Результат</h2>
-            <span className="hint">SHA-256 {r.sha256?.slice(0, 12)}… · сохранено в очередь материалов</span>
+            <span className="hint">SHA-256 {r.sha256?.slice(0, 12)}… · сохранено в очередь материалов
+              <button className="btn btn-ghost btn-sm" style={{ marginLeft: 10 }}
+                      onClick={() => printReport(r.risk, { title: r.author || "материал", source: r.source, sha256: r.sha256,
+                                                          text: r.text, identifiers: r.identifiers })}>
+                Справка (печать / PDF)
+              </button></span>
           </div>
           <div className="card-pad stack">
             <RiskExplain risk={r.risk} contentRiskId={r.content_risk_id} />
+            {r.text && (
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>Текст материала · признаки подсвечены</div>
+                <HighlightedText text={r.text} risk={r.risk} />
+              </div>
+            )}
             <IdentifierList ids={r.identifiers} />
             {r.author && onOpenDossier && (
               <div><button className="btn btn-ghost btn-sm" onClick={() => onOpenDossier(r.author)}>Досье аккаунта {r.author} →</button></div>
@@ -199,7 +215,7 @@ export function CheckView({ onOpenDossier }: { onOpenDossier?: (account: string)
               </div>
             )}
             <details>
-              <summary className="muted small">Распознанный текст (подпись + речь + экран)</summary>
+              <summary className="muted small">Исходный распознанный текст (подпись + речь + экран)</summary>
               <pre className="evpkg-md">{r.text || "—"}</pre>
             </details>
           </div>

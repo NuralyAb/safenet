@@ -36,7 +36,7 @@ function printDossier(d: Dossier) {
   .banner{border:1px solid #999;border-left:4px solid #c00;padding:8px 12px;border-radius:6px;margin:8px 0}
   ul{margin:4px 0;padding-left:20px}</style></head><body>
   <h1>Аналитическая справка — ${esc(d.account)}</h1>
-  <div class="muted">AFM · Fraud Intelligence · источник: ${esc(d.source || "—")} · сформировано: ${new Date().toLocaleString("ru-RU")}</div>
+  <div class="muted">SafeNet KZ · источник: ${esc(d.source || "—")} · сформировано: ${new Date().toLocaleString("ru-RU")}</div>
   <div class="banner"><b>Кампания:</b> ${c.posts} публикаций → ${c.accounts} аккаунт(ов) → ${c.wallets + c.telegram + c.domains + c.phones} идентификаторов → ${c.is_network ? "1 сеть" : "1 объект"} · <span class="v">${esc(c.threat_level)}</span>${c.is_network ? ` · организатор: ${esc(c.ringleader)}` : ""}</div>
   <h2>Риск</h2><div>Общий балл: <span class="v">${d.overall ? `${d.overall.score} · ${esc(d.overall.threat_level)}` : "—"}</span> · видео: ${d.totals.videos} · охват: ${d.totals.total_views}</div>
   <h2>Идентификаторы</h2><ul>${ids || "<li>—</li>"}</ul>
@@ -44,7 +44,7 @@ function printDossier(d: Dossier) {
   <h2>Паттерн нарушений</h2><ul>${pat || "<li>—</li>"}</ul>
   ${lnk ? `<h2>Связанные аккаунты</h2><ul>${lnk}</ul>` : ""}
   <h2>Видео (${d.videos.length})</h2><table><thead><tr><th>ID</th><th>Риск</th><th>Источник</th></tr></thead><tbody>${vids || ""}</tbody></table>
-  <p class="muted" style="margin-top:24px">Документ сформирован автоматически. Риск-оценка детерминирована; каждый фактор прослеживается к доказательству. Деанонимизация и процессуальные действия — в полномочиях АФМ.</p>
+  <p class="muted" style="margin-top:24px">Документ сформирован автоматически. Риск-оценка детерминирована; каждый фактор прослеживается к доказательству. Система показывает признаки возможного нарушения, а не вердикт; деанонимизация и процессуальные действия — в полномочиях профильных ведомств.</p>
   </body></html>`;
   const w = window.open("", "_blank");
   if (!w) return;

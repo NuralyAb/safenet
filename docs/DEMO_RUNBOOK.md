@@ -1,4 +1,4 @@
-# AFM — демо-runbook для питча
+# SafeNet KZ — демо-runbook для питча
 
 Пошаговый сценарий для живой демонстрации на хакатоне. Проверено end-to-end:
 login → расследование (Temporal) → граф → Money Flow (реальный on-chain) → триаж.
@@ -19,7 +19,7 @@ docker compose up -d --force-recreate backend collector-worker processing-worker
 make migrate                  # alembic upgrade head  (должно дойти до 0010)
 
 # 4. Засеять демо-данные с известным паролем и демо-сетью
-docker compose exec -e AFM_DEMO_PASSWORD=demo-pass-1234 backend \
+docker compose exec -e SafeNet KZ_DEMO_PASSWORD=demo-pass-1234 backend \
   python -m scripts.seed_demo --with-demo-network
 ```
 

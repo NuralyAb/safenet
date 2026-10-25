@@ -29,19 +29,19 @@ TRACK_WEIGHTS: dict[str, dict[str, int]] = {
     "lottery": {
         "lottery.paid_entry": 40, "lottery.random_draw": 20, "lottery.organizer_income": 20,
         "lottery.giveaway": 10, "lottery.series": 10, "shared.personal_transfer": 15,
-        "network.links": 10,
+        "network.links": 10, "ml.similar": 20,
     },
     "casino": {
         "casino.gambling": 25, "casino.brand": 25, "casino.native_win": 25, "casino.promo_code": 20,
         "casino.tracking_link": 15, "casino.call_to_action": 15, "casino.stream": 10,
-        "casino.proxy_channel": 10, "visual.gambling": 15, "network.links": 10,
+        "casino.proxy_channel": 15, "visual.gambling": 15, "network.links": 10, "ml.similar": 20,
     },
     "pyramid": {
         "pyramid.unrealistic_return": 40, "pyramid.recruitment_income": 30, "shared.personal_transfer": 20,
         "pyramid.referral": 20, "pyramid.entry_payment": 10,
         "pyramid.urgency": 15, "pyramid.payout_proofs": 10, "pyramid.structure_roles": 10,
         "pyramid.closed_chat": 5, "group.template_messages": 10, "group.proof_flood": 10,
-        "group.organizer_curators": 10, "network.links": 10,
+        "group.organizer_curators": 10, "network.links": 10, "ml.similar": 20,
     },
 }
 
@@ -110,6 +110,8 @@ def _score_track(track: str, hits: dict[str, Hit], ev: list[str], *, has_license
         h = hits.get(sid)
         if not h or h.strength <= 0:
             continue
+        if sid == "ml.similar" and h.track != track:      # the model votes for one track only
+            continue
         c = w * min(1.0, h.strength)
         raw += c
         lines.append(_line(sid, track, w, h.strength, c, _note(h), ev, hit=h))
@@ -118,6 +120,11 @@ def _score_track(track: str, hits: dict[str, Hit], ev: list[str], *, has_license
 
     def has(sid: str) -> bool:
         return sid in hits and hits[sid].strength > 0
+
+    from app.services.safenet.model import CORE_P
+    ml = hits.get("ml.similar")
+    ml_core = bool(ml and ml.track == track and ml.strength >= CORE_P)
+    ML_CAP = (50, "Ограничение: ключевой признак не найден правилами, только моделью — максимум «средний»")
 
     def cap(limit: float, why: str) -> None:
         nonlocal raw
@@ -137,7 +144,9 @@ def _score_track(track: str, hits: dict[str, Hit], ev: list[str], *, has_license
             or has("lottery.random_draw")
         context = strong_context or has("lottery.giveaway")
         paid = has("lottery.paid_entry") or (has("shared.personal_transfer") and context)
-        if not context:
+        if (not context or not paid) and ml_core:
+            cap(*ML_CAP)
+        elif not context:
             cap(25, "Ограничение: нет признаков розыгрыша/лотереи — оплата может относиться к другому")
         elif not paid:
             cap(25, "Ограничение: нет признака платного участия — похоже на обычный конкурс")
@@ -149,7 +158,9 @@ def _score_track(track: str, hits: dict[str, Hit], ev: list[str], *, has_license
     elif track == "casino":
         core = has("casino.gambling") or has("casino.brand") or has("visual.gambling")
         promotion = any(has(s) for s in CASINO_PROMOTION)
-        if not core:
+        if not core and ml_core:
+            cap(*ML_CAP)
+        elif not core:
             if has("casino.native_win") and (has("casino.promo_code") or has("casino.tracking_link")
                                              or has("casino.proxy_channel") or has("casino.call_to_action")):
                 cap(50, "Ограничение: игра явно не названа — вывод только по нативной рекламе и ссылке")
@@ -161,7 +172,9 @@ def _score_track(track: str, hits: dict[str, Hit], ev: list[str], *, has_license
             scale(0.5, "Смягчение: оператор найден в реестре лицензий — проверить соблюдение правил рекламы")
     elif track == "pyramid":
         core = has("pyramid.unrealistic_return") or has("pyramid.recruitment_income")
-        if not core:
+        if not core and ml_core:
+            cap(*ML_CAP)
+        elif not core:
             if has("pyramid.referral") and (has("shared.personal_transfer") or has("pyramid.entry_payment")):
                 scale(0.8, "Смягчение: нет явного обещания доходности — реферальный сбор денег")
             else:
@@ -209,6 +222,17 @@ def score_detection(detection: Detection | None = None, *, hits: dict[str, Hit] 
     if score == 0:
         best = ""
     multi = [t for t, (s, _) in per_track.items() if s >= MEDIUM]
+
+    # «Что если»: the overall score with each sign removed — shows which signs carry the
+    # decision (one sign holding a «высокий» level up is something to double-check).
+    if score > 0:
+        for line in breakdown:
+            if line["kind"] == "signal" and line["factor"] in hits:
+                rest = {k: v for k, v in hits.items() if k != line["factor"]}
+                without = max(_score_track(t, rest, ev, has_license=has_license, direct_link=direct_link)[0]
+                              for t in lexicon.TRACKS)
+                line["without"] = without
+                line["level_without"] = level_for(without).value
 
     signals = [
         {**h.to_dict(), "track": h.track}

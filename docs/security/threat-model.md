@@ -1,4 +1,4 @@
-# AFM — Threat Model (STRIDE)
+# SafeNet KZ — Threat Model (STRIDE)
 
 **Scope:** on-prem fraud-intelligence platform, law-enforcement deployment. Special-category data: biometric embeddings (face/voice), surveillance targets' PII, evidence. **Assets to protect:** evidence integrity (chain of custody), biometric vault, audit trail, analyst identities, investigation results.
 

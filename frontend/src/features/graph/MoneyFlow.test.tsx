@@ -14,7 +14,7 @@ const FLOW: MoneyFlow = {
     { source: "@scam", target: "0xdead000000000000000000000000000000000001", label: "MENTIONS", chain: "ethereum" },
     { source: "0xdead000000000000000000000000000000000001", target: "0x28c6c06298d514db089934071355e5743bf21d60", label: "SENT_TO", exchange: "Binance" },
   ],
-  boundary: { reached: "exchange", note: "Дальше — связь «кошелёк → банковский счёт» … обогащается данными АФМ." },
+  boundary: { reached: "exchange", note: "Дальше — связь «кошелёк → банковский счёт» … обогащается данными профильных ведомств." },
 };
 
 describe("MoneyFlowView", () => {

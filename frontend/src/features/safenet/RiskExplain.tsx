@@ -31,7 +31,7 @@ export function QuoteChip({ q }: { q: SignalQuote }) {
   );
 }
 
-function SignalLine({ b }: { b: BreakdownLine }) {
+function SignalLine({ b, flagged }: { b: BreakdownLine; flagged: boolean }) {
   const label = b.label || b.factor;
   const extra = b.detail ?? "";
   return (
@@ -40,6 +40,12 @@ function SignalLine({ b }: { b: BreakdownLine }) {
       <div>
         <div className="sn-signal-label">{label}</div>
         {extra && <div className="muted small">{extra}</div>}
+        {b.without !== undefined && (
+          <div className="sn-without small">
+            без этого признака: <b>{b.without}</b> · {LEVEL_RU[b.level_without ?? "LOW"]}
+            {flagged && b.level_without === "LOW" && " — решающий признак"}
+          </div>
+        )}
         {(b.quotes ?? []).length > 0 && (
           <div className="sn-quotes">{(b.quotes ?? []).map((q, i) => <QuoteChip key={i} q={q} />)}</div>
         )}
@@ -112,12 +118,12 @@ export function RiskExplain({ risk, contentRiskId, compact = false }: {
 
       <div>
         <div className="eyebrow" style={{ marginBottom: 6 }}>
-          Почему помечено · признаков: {signals.length}
+          {risk.score >= 40 ? "Почему помечено" : "Найденные признаки"} · признаков: {signals.length}
         </div>
         {signals.length === 0 ? (
           <p className="muted small">Признаков возможного нарушения не найдено.</p>
         ) : (
-          <ul className="sn-signals">{signals.map((b) => <SignalLine key={b.factor} b={b} />)}</ul>
+          <ul className="sn-signals">{signals.map((b) => <SignalLine key={b.factor} b={b} flagged={risk.score >= 40} />)}</ul>
         )}
       </div>
 
@@ -163,4 +169,43 @@ export function IdentifierList({ ids }: { ids: Record<string, string[] | undefin
       </div>
     </div>
   );
+}
+
+
+/** The material's text with every quoted sign highlighted in place. */
+export function HighlightedText({ text, risk }: { text: string; risk: SafeNetRisk }) {
+  const marks: { q: string; label: string }[] = [];
+  for (const b of risk.breakdown) {
+    if ((b.kind ?? "signal") !== "signal") continue;
+    for (const q of b.quotes ?? []) {
+      if (q.source === "llm" || q.source === "model" || q.source === "group" || q.view === "emoji") continue;
+      if (q.text && q.text.length >= 2) marks.push({ q: q.text, label: b.label ?? b.factor });
+    }
+  }
+  const low = text.toLowerCase();
+  const ranges: { s: number; e: number; label: string }[] = [];
+  for (const m of marks) {
+    const needle = m.q.replace(/…$/, "").toLowerCase();
+    let i = low.indexOf(needle);
+    while (i !== -1) {
+      ranges.push({ s: i, e: i + needle.length, label: m.label });
+      i = low.indexOf(needle, i + needle.length);
+    }
+  }
+  ranges.sort((a, b) => a.s - b.s || b.e - a.e);
+  const merged: typeof ranges = [];
+  for (const r of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && r.s < last.e) { last.e = Math.max(last.e, r.e); if (!last.label.includes(r.label)) last.label += " · " + r.label; }
+    else merged.push({ ...r });
+  }
+  const parts: JSX.Element[] = [];
+  let pos = 0;
+  merged.forEach((r, k) => {
+    if (r.s > pos) parts.push(<span key={`t${k}`}>{text.slice(pos, r.s)}</span>);
+    parts.push(<mark key={`m${k}`} className="sn-mark" title={r.label}>{text.slice(r.s, r.e)}</mark>);
+    pos = r.e;
+  });
+  if (pos < text.length) parts.push(<span key="tail">{text.slice(pos)}</span>);
+  return <div className="sn-highlight">{parts}</div>;
 }

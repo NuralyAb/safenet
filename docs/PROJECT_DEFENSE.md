@@ -1,6 +1,6 @@
-# AFM — Защита проекта: полное описание функционала и демо-тест
+# SafeNet KZ — Защита проекта: полное описание функционала и демо-тест
 
-**AFM (AI Platform for Fraud Intelligence & Social Media Investigation)** — on-prem
+**SafeNet KZ (AI Platform for Fraud Intelligence & Social Media Investigation)** — on-prem
 платформа для выявления и расследования сетей финансового мошенничества в соцсетях.
 Профиль применения: гос/правоохранительный (АФМ — Агентство по финансовому мониторингу).
 

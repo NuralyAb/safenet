@@ -50,9 +50,11 @@ def test_risk_reflects_text_signals_and_matches():
     p["text"] = "Вложи 5000 тг — через неделю получишь 10 000 тг! Пригласи друга — бонус"
     alone = analyze_processed(p, matches=[])["risk"]
     linked = analyze_processed(p, matches=[_Match("c2", 0.9, ["wallet:USDT-X"])] * 5)
-    # return ×2 in a week (40) + referral (20) = 60; 5 scheme matches add the network factor (+10)
-    assert alone["score"] == 60 and alone["track"] == "pyramid"
-    assert linked["risk"]["score"] == 70
+    # rules: return ×2 in a week (40) + referral (20) = 60, plus the learned layer (≤ 20);
+    # 5 scheme matches add the network factor (+10)
+    rules = sum(b["contribution"] for b in alone["breakdown"] if b["factor"] != "ml.similar")
+    assert round(rules) == 60 and alone["track"] == "pyramid"
+    assert linked["risk"]["score"] == min(100, alone["score"] + 10)
     assert linked["scheme_matches"][0]["content_id"] == "c2"
 
 

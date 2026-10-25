@@ -37,7 +37,7 @@ _DEFAULTS = {
     "ai_vision_model": lambda: settings.openai_vision_model,
     "ai_max_retries": lambda: settings.ai_max_retries,
     "ai_retry_base_seconds": lambda: settings.ai_retry_base_seconds,
-    "watchlist_enabled": lambda: True,
+    "watchlist_enabled": lambda: False,           # off until started by the analyst
     "watchlist_sweep_seconds": lambda: settings.watchlist_sweep_seconds,
     "alert_on_high_risk": lambda: True,
     "alert_min_score": lambda: 65,

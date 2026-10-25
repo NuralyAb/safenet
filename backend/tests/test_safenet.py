@@ -140,3 +140,10 @@ def test_metrics_on_independent_blind_set_do_not_regress():
     assert r["binary"]["fpr"] <= 0.05            # few false positives — the hackathon priority
     assert r["binary"]["precision"] >= 0.9
     assert r["binary"]["recall"] >= 0.6
+
+
+def test_rules_plus_model_on_second_blind_set_do_not_regress():
+    r = evaluate(load("blind2"), use_model=True)
+    assert r["binary"]["fpr"] <= 0.06
+    assert r["binary"]["precision"] >= 0.9
+    assert r["binary"]["recall"] >= 0.65

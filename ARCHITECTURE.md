@@ -1,4 +1,4 @@
-# AFM — Architecture
+# SafeNet KZ — Architecture
 
 AI Platform for Fraud Intelligence & Social Media Investigation.
 

@@ -89,6 +89,7 @@ class TextViews:
     translit: str          # Latin words transliterated to Cyrillic
     emoji: str             # words that the emoji in the text stand for
     aligned: bool          # original/base/deobf share offsets
+    numwords: str = ""     # number words as digits («двадцать тысяч» -> «20000»)
 
     def items(self) -> list[tuple[str, str]]:
         """(view name, text) in priority order — a pattern hit on the first view wins."""
@@ -99,6 +100,8 @@ class TextViews:
             out.append(("collapsed", self.collapsed))
         if self.translit and self.translit != self.base:
             out.append(("translit", self.translit))
+        if self.numwords:
+            out.append(("numwords", self.numwords))
         if self.emoji:
             out.append(("emoji", self.emoji))
         return out
@@ -122,6 +125,8 @@ def _deobfuscate_token(tok: str) -> str:
     leet = _LEET_CYR if has_cyr else _LEET_LAT
     digits = sum(ch.isdigit() for ch in tok)
     if digits and digits >= letters:               # «5000тг», «x100» — numbers, not leet
+        return "".join(chars)
+    if re.search(r"\d\d", tok):                    # «SHYM777», «WIN500» — codes, not leet
         return "".join(chars)
     for i, c in enumerate(chars):
         if c in leet:
@@ -181,8 +186,21 @@ def _translit(base: str) -> str:
     return re.sub(r"[а-я]+", lambda w: _TRANSLIT_FIX.get(w.group(0), w.group(0)), out)
 
 
+_MONEY_EMOJI = "💵💰💸🪙💲💴💶💷🤑"
+_ARROW = r"(?:➡️|➡|→|⏩|👉|=|>>|⇒|⟶|🔜)"
+# «💵➡️💵💵» — more money after the arrow than before: an emoji-only return promise
+_EMOJI_MULTIPLY = re.compile(rf"([{_MONEY_EMOJI}]+)\s*{_ARROW}\s*([{_MONEY_EMOJI}]+)")
+# «🎰➡️💸», «🎲→💰» — gambling turns into money
+_EMOJI_WIN = re.compile(rf"[🎰🎲🃏♠♦🎱]️?\s*{_ARROW}\s*[{_MONEY_EMOJI}]")
+
+
 def _emoji_words(text: str) -> str:
     words = [w for ch, w in _EMOJI_WORDS.items() if ch in text and w]
+    for m in _EMOJI_MULTIPLY.finditer(text):
+        if len(m.group(2)) > len(m.group(1)):
+            words.append(f"вложи деньги получи в {len(m.group(2)) // max(1, len(m.group(1)))} раза больше")
+    if _EMOJI_WIN.search(text):
+        words.append("выигрыш в казино вывод денег")
     return " ".join(words)
 
 
@@ -194,9 +212,14 @@ def build_views(text: str) -> TextViews:
     if len(deobf) != len(base):
         deobf = base
     collapsed = _collapse_spaced(deobf)
+    translit = _translit(collapsed)
+    from app.services.safenet.numwords import words_to_digits
+    spelled_src = translit or collapsed
+    numwords = words_to_digits(spelled_src)
     return TextViews(
         original=original, base=base, deobf=deobf, collapsed=collapsed,
-        translit=_translit(collapsed), emoji=_emoji_words(original), aligned=aligned,
+        translit=translit, emoji=_emoji_words(original), aligned=aligned,
+        numwords=numwords if numwords != spelled_src else "",
     )
 
 

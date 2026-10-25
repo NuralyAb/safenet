@@ -13,6 +13,9 @@ from app.db.models import AppSetting
 SWEEP_INTERVAL = "watchlist_sweep_seconds"   # how often auto-collection runs
 SWEEP_ENABLED = "watchlist_enabled"          # master on/off for auto-collection
 SWEEP_LAST_RUN = "watchlist_last_sweep"      # epoch seconds of the last actual sweep
+# Auto-collection is OFF until an analyst presses «Запустить»: every sweep spends paid
+# AI calls (STT / vision / LLM), so it must never start on its own.
+SWEEP_ENABLED_DEFAULT = False
 
 MIN_INTERVAL_SECONDS = 60                     # floor — beat ticks every 60s
 

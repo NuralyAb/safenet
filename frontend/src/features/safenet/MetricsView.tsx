@@ -37,8 +37,9 @@ function SliceTable({ title, rows }: { title: string; rows: [string, { n: number
 }
 
 export function MetricsView() {
-  const [dataset, setDataset] = useState("blind");
-  const m = useQuery<MetricsReport>({ queryKey: ["metrics", dataset], queryFn: () => api.getMetrics(dataset) });
+  const [dataset, setDataset] = useState("blind2");
+  const [withModel, setWithModel] = useState(true);
+  const m = useQuery<MetricsReport>({ queryKey: ["metrics", dataset, withModel], queryFn: () => api.getMetrics(dataset, withModel) });
   const meth = useQuery<Methodology>({ queryKey: ["methodology"], queryFn: api.getMethodology });
   const r = m.data;
 
@@ -47,16 +48,26 @@ export function MetricsView() {
       <section className="card">
         <div className="card-head">
           <h2>Метрики на размеченных выборках</h2>
-          <span className="hint">режим: только детерминированные правила, без LLM — воспроизводимо офлайн</span>
+          <span className="hint">без LLM и внешних API — воспроизводимо офлайн</span>
         </div>
         <div className="card-pad stack">
-          <div className="tabs">
-            {(r?.available ?? [{ id: "blind", title: "" }]).map((d) => (
-              <button key={d.id} className={`tab${dataset === d.id ? " active" : ""}`} onClick={() => setDataset(d.id)}>
-                {{ blind: "Слепая (независимая)", holdout: "Отложенная №2", test: "Тест №1", dev: "Настройка" }[d.id] ?? d.id}
-              </button>
-            ))}
+          <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <div className="tabs">
+              {(r?.available ?? [{ id: "blind2", title: "" }]).map((d) => (
+                <button key={d.id} className={`tab${dataset === d.id ? " active" : ""}`} onClick={() => setDataset(d.id)}>
+                  {{ blind2: "Слепая №2 (главная)", blind: "Слепая №1", holdout: "Отложенная", test: "Тест", dev: "Настройка" }[d.id] ?? d.id}
+                </button>
+              ))}
+            </div>
+            <div className="tabs">
+              <button className={`tab${!withModel ? " active" : ""}`} onClick={() => setWithModel(false)}>Только правила</button>
+              <button className={`tab${withModel ? " active" : ""}`} onClick={() => setWithModel(true)}>Правила + модель</button>
+            </div>
           </div>
+          {r?.training_set && (
+            <p className="err small">Модель обучена на этой выборке — цифры в режиме «правила + модель» здесь не являются оценкой качества.
+              Честная оценка — на слепых выборках.</p>
+          )}
           {m.isLoading && <div className="empty"><span className="spinner" /></div>}
           {m.error && <p className="err small">{(m.error as Error).message}</p>}
           {r && (

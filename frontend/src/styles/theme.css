@@ -1,5 +1,5 @@
 /* ============================================================================
-   AFM — Cobalt Ink
+   SafeNet KZ — Cobalt Ink
    Operator console for fraud-network investigation.
    Aesthetic: deep ink-navy base with an electric cobalt signal accent.
    Layered surfaces, hairline borders, restrained glow on critical/active
@@ -911,3 +911,20 @@ tr.clickable:hover { background: var(--panel-2); }
   .sn-track-bars .bar-tag { min-width: 110px; }
   .sn-signal { grid-template-columns: 36px 1fr; }
 }
+
+/* ===== Auto-collection control (manual start / stop) ================== */
+.autocollect { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.autocollect-state { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.autocollect-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-faint); }
+.autocollect-dot.on { background: var(--low); box-shadow: 0 0 0 3px var(--low-bg); }
+.autocollect.compact { justify-content: space-between; width: 100%; }
+.sidebar-autocollect { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: var(--r-md); background: var(--panel); }
+.sn-without { color: var(--text-muted); margin-top: 3px; }
+.sn-highlight { white-space: pre-wrap; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: var(--r-md); background: var(--panel); overflow-wrap: anywhere; }
+.sn-mark { background: var(--quote-bg); color: inherit; border-bottom: 2px solid var(--medium); border-radius: 3px; padding: 0 1px; }
+.badge.threat { white-space: nowrap; }
+.sn-track-bars .bar-tag { min-width: 170px; white-space: nowrap; }
+.sn-track-bars .bar-row { grid-template-columns: 170px 1fr 34px; }
+.sn-track-bars .bar-tag { min-width: 0; }

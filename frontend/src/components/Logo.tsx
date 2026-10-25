@@ -1,5 +1,5 @@
 /**
- * AFM brand mark.
+ * SafeNet KZ brand mark.
  *
  * A shield (protection / law enforcement) enclosing a hub-and-spoke network —
  * the central node is the scheme organiser the platform exists to surface.
@@ -53,8 +53,8 @@ export function LogoLockup({ size = 27 }: { size?: number }) {
     <span className="brand">
       <LogoMark className="brand-mark" size={size} />
       <span>
-        <span className="title">AFM</span>
-        <span className="subtitle">Fraud Intelligence</span>
+        <span className="title">SafeNet KZ</span>
+        <span className="subtitle">Цифровой щит</span>
       </span>
     </span>
   );

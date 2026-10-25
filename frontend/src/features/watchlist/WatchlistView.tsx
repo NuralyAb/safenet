@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type MonitoringSchedule, type WatchTarget } from "../../api/client";
 import { TrashIcon } from "../../components/icons";
+import { AutoCollectControl } from "./AutoCollectControl";
 
 const SOURCES = ["youtube", "telegram", "tiktok", "instagram"];
 
@@ -65,18 +66,14 @@ function ScheduleCard() {
       <div className="card-pad">
         {!s ? <div className="empty"><span className="spinner" /></div> : (
           <div className="row" style={{ gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-            <label className="row" style={{ gap: 8, cursor: "pointer" }}>
-              <input type="checkbox" checked={s.enabled} disabled={save.isPending}
-                     onChange={(e) => save.mutate({ enabled: e.target.checked })} />
-              <span><b>{s.enabled ? "Включён" : "Выключен"}</b></span>
-            </label>
+            <AutoCollectControl />
             <label className="row" style={{ gap: 8 }}>
               <span className="muted small">по умолчанию каждые</span>
               <input className="input" type="number" min={1} max={1440} value={minutes}
-                     disabled={!s.enabled || save.isPending} style={{ width: 80, padding: "6px 8px" }}
+                     disabled={save.isPending} style={{ width: 80, padding: "6px 8px" }}
                      onChange={(e) => setMinutes(Math.max(1, Math.min(1440, Number(e.target.value) || 1)))} />
               <span className="muted small">мин</span>
-              <button className="btn btn-ghost btn-sm" disabled={!s.enabled || save.isPending}
+              <button className="btn btn-ghost btn-sm" disabled={save.isPending}
                       onClick={() => save.mutate({ interval_seconds: minutes * 60 })}>
                 {save.isPending ? <><span className="spinner" /> …</> : "Сохранить"}
               </button>
@@ -88,8 +85,10 @@ function ScheduleCard() {
         )}
         {save.error && <p className="err small" style={{ marginTop: 8 }}>{(save.error as Error).message}</p>}
         <p className="muted small" style={{ marginTop: 10 }}>
-          Beat проверяет расписание раз в минуту. Интервал по умолчанию применяется к целям,
-          у которых не задан свой. Частоту и лимит для каждой цели можно задать в таблице ниже.
+          Автосбор запускается только кнопкой «Запустить»: все цели обходятся сразу, а дальше —
+          по расписанию, пока не нажмёте «Остановить». После остановки уже поставленные в очередь
+          задачи автосбора отменяются до скачивания и платной AI-обработки. Каждый обход тратит
+          AI-запросы (речь, кадры, LLM). Интервал по умолчанию применяется к целям без своего.
         </p>
       </div>
     </section>

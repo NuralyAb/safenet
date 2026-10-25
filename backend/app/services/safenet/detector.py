@@ -19,10 +19,12 @@ SOURCE_LABELS = {
     "text": "текст поста", "caption": "подпись", "transcript": "речь (транскрипт)",
     "ocr": "текст на изображении", "stream": "транскрипт эфира", "chat": "сообщение чата",
     "llm": "семантический анализ (LLM)", "vision": "визуальные теги", "group": "анализ группы",
+    "model": "модель по размеченным примерам",
 }
 VIEW_LABELS = {
     "base": "", "deobf": "скрыто подменой символов", "collapsed": "скрыто разрядкой букв",
     "translit": "написано транслитом", "emoji": "закодировано эмодзи",
+    "numwords": "числа прописью",
 }
 MAX_QUOTES = 3
 
@@ -120,7 +122,8 @@ def _add(hits: dict[str, Hit], signal: str, track: str, strength: float, quote: 
                 h.note = note
         elif note and not h.note:
             h.note = note
-    if quote and quote.text and all(q.text.lower() != quote.text.lower() for q in h.quotes):
+    # the same phrase seen through another view («Қатысу ақылы» / «катысу акылы») is one quote
+    if quote and quote.text and all(_squash(q.text) != _squash(quote.text) for q in h.quotes):
         if stronger:                      # the quote that justifies the strength goes first
             h.quotes = [quote] + h.quotes[:MAX_QUOTES - 1]
         elif len(h.quotes) < MAX_QUOTES:
@@ -156,6 +159,10 @@ def _scan_segment(hits: dict[str, Hit], text: str, source: str) -> None:
         num_views.append(("collapsed", views.collapsed))         # «Д О Х О Д 300% за месяц»
     if views.translit:
         num_views.append(("translit", views.translit))
+    if views.numwords:
+        num_views.append(("numwords", views.numwords))       # «вложил двадцать тысяч»
+    if views.emoji:
+        num_views.append(("emoji", views.emoji))
     for view_name, num_text in num_views:
         found = numeric.return_ratio(num_text) + numeric.return_rate(num_text) + numeric.multipliers(num_text)
         for nh in found:
@@ -180,7 +187,8 @@ def _identifiers(text: str) -> dict:
     ids["cards"] = [numeric.mask_card(d) for d, _ in numeric.card_numbers(folded)]
     # promo code = a latin/digit token with at least one letter right after «промокод»
     ids["promo_codes"] = sorted({m.group(1).upper() for m in re.finditer(
-        r"(?:промо\s?код\w*|promo\s?code|\bпромо\b|по коду|\bкод)\s?[:\-–—«\"']?\s?([a-z0-9_]*[a-z][a-z0-9_]*)\b",
+        r"(?:промо\s?код\w*|promo\s?(?:code|kod)\w*|\bpromik\w*|\bпромик\w*|\bпромо\b|\bpromo\b|по коду|\bкод|\bkod)"
+        r"\s?[:\-–—«\"']?\s?([a-z0-9_]*[a-z][a-z0-9_]*)\b",
         folded) if 3 <= len(m.group(1)) <= 20})
     ids["short_links"] = sorted({m.group(0) for m in re.finditer(
         r"(?:https?://)?(?:" + lexicon._SHORTENERS + r")/[\w\-]+", folded)})
@@ -238,8 +246,11 @@ def parse_llm_hits(raw: str, text: str) -> list[tuple[str, str]]:
     return out
 
 
-def detect(segments: list[tuple[str, str]], *, llm=None, vision_tags: list[str] | None = None) -> Detection:
-    """Run the full detector over (source, text) segments."""
+def detect(segments: list[tuple[str, str]], *, llm=None, vision_tags: list[str] | None = None,
+           use_model: bool = True) -> Detection:
+    """Run the full detector over (source, text) segments.
+
+    `use_model` adds the learned «похоже на размеченные схемы» signal (model.py)."""
     hits: dict[str, Hit] = {}
     texts = []
     for source, text in segments:
@@ -265,6 +276,14 @@ def detect(segments: list[tuple[str, str]], *, llm=None, vision_tags: list[str] 
             _add(hits, "visual.gambling", "casino", 1.0,
                  Quote(", ".join(vision_tags[:5]), "vision", "base"),
                  note="на изображении — интерфейс казино/слотов")
+
+    if use_model and full.strip():
+        from app.services.safenet import model
+        track, p, why = model.predict(full)
+        if track != "none" and p >= model.MIN_P:
+            hits["ml.similar"] = Hit("ml.similar", track, round(p, 3),
+                                     [Quote(", ".join(why) or "—", "model", "base")],
+                                     note=f"вероятность {p:.0%}, трек «{lexicon.TRACK_LABELS[track].lower()}»")
 
     return Detection(hits=hits, language=detect_language(full), identifiers=_identifiers(full), text=full)
 

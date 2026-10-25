@@ -1,5 +1,6 @@
 import { LANG_RU, type ChatAnalysis } from "../../api/client";
 import { IdentifierList, LevelBadge, RiskExplain } from "./RiskExplain";
+import { printReport } from "./printReport";
 
 const PLATFORM: Record<string, string> = { telegram: "Telegram", whatsapp: "WhatsApp", text: "текст" };
 
@@ -14,6 +15,14 @@ export function ChatResult({ r }: { r: ChatAnalysis }) {
           <span className="hint">
             {PLATFORM[r.platform] ?? r.platform} · {r.messages} сообщений · {r.authors} участников ·
             помечено сообщений: {r.flagged_messages}{langs ? ` · ${langs}` : ""}
+            <button className="btn btn-ghost btn-sm" style={{ marginLeft: 10 }}
+                    onClick={() => printReport(r.risk, {
+                      title: r.group, source: r.platform, sha256: r.sha256, identifiers: r.identifiers,
+                      text: [`Организатор (кандидат): ${r.organizer || "—"}`, `Кураторы (кандидаты): ${r.curators.join(", ") || "—"}`, "",
+                             ...r.top_messages.filter((m) => m.score > 0).map((m) => `[${m.author}] (${m.score}) ${m.text}`)].join("\n"),
+                    })}>
+              Справка (печать / PDF)
+            </button>
           </span>
         </div>
         <div className="card-pad stack">

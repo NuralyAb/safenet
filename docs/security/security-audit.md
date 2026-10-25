@@ -1,4 +1,4 @@
-# AFM — SecOps Audit
+# SafeNet KZ — SecOps Audit
 
 Gate run via `senior-secops` scanners. Companion to [threat-model.md](threat-model.md).
 
@@ -15,7 +15,7 @@ SAST is clean partly by design: DB access goes through SQLAlchemy (parameterized
 
 ## Compliance — domain interpretation (important)
 
-The scanner assumes consumer SaaS. AFM is a **law-enforcement investigation tool**; in the EU the applicable regime is the **Law Enforcement Directive 2016/680 / national law**, not consumer GDPR. So:
+The scanner assumes consumer SaaS. SafeNet KZ is a **law-enforcement investigation tool**; in the EU the applicable regime is the **Law Enforcement Directive 2016/680 / national law**, not consumer GDPR. So:
 
 | Flag | Verdict | Action |
 |------|---------|--------|

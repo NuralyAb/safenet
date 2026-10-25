@@ -7,7 +7,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 const GREETING: Msg = {
   role: "assistant",
-  content: "Привет! Я AI-ассистент AFM. Могу не только объяснить, но и действовать: «топ материалов», «сводка по @account», «открой граф», «проанализируй <ссылка>».",
+  content: "Привет! Я AI-ассистент SafeNet KZ. Могу не только объяснить, но и действовать: «топ материалов», «сводка по @account», «открой граф», «проанализируй <ссылка>».",
 };
 const SUGGESTIONS = ["Топ материалов", "Сколько высокого риска?", "Открой граф сети"];
 
@@ -52,10 +52,10 @@ export function ChatWidget({ onAction }: { onAction?: (a: AgentAction) => void }
       </button>
 
       {open && (
-        <div className="chat-panel" role="dialog" aria-label="AI-ассистент AFM">
+        <div className="chat-panel" role="dialog" aria-label="AI-ассистент SafeNet KZ">
           <div className="chat-head">
             <span className="pulse-dot" /> <strong>AI-ассистент</strong>
-            <span className="muted small" style={{ marginLeft: "auto" }}>AFM</span>
+            <span className="muted small" style={{ marginLeft: "auto" }}>SafeNet KZ</span>
           </div>
 
           <div className="chat-body" ref={bodyRef}>

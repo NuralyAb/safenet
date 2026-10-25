@@ -29,6 +29,31 @@ def _require(payload: dict, keys: set[str], stage: str) -> None:
         raise ValueError(f"{stage}: payload missing keys {sorted(missing)}")
 
 
+SWEEP_ORIGIN = "sweep"     # work started by auto-collection (vs a manual «Собрать»)
+
+
+def sweep_stopped() -> bool:
+    """True when the analyst has stopped auto-collection (or never started it)."""
+    from app.db import settings_repo as cfg
+    from app.db.session import get_session
+
+    gen = get_session()
+    session = next(gen)
+    try:
+        return not cfg.get_bool(session, cfg.SWEEP_ENABLED, cfg.SWEEP_ENABLED_DEFAULT)
+    finally:
+        gen.close()
+
+
+def _cancel_if_sweep_stopped(origin: str | None, stage: str) -> None:
+    """«Остановить» must stop spending at once: queued auto-collection work is dropped
+    at the next stage, before any download or paid AI call. Manual runs are unaffected."""
+    if origin == SWEEP_ORIGIN and sweep_stopped():
+        from celery.exceptions import Ignore
+        log.info("auto-collection stopped — dropping queued %s", stage)
+        raise Ignore()
+
+
 def _dead_letter(stage: str, payload, exc: Exception) -> None:
     """Record a terminally-failed item. Phase 0: also persist to a dead_letter table."""
     log.error("DEAD-LETTER stage=%s err=%s payload=%r", stage, exc, payload)
@@ -46,8 +71,10 @@ class PipelineTask(Task):
 
 
 @celery_app.task(base=PipelineTask, name="app.workers.tasks.collect_content")
-def collect_content(source: str, target: str, limit: int | None = None) -> list[dict]:
+def collect_content(source: str, target: str, limit: int | None = None,
+                    origin: str | None = None) -> list[dict]:
     """Fetch a target's content via the source adapter; store originals (WORM)."""
+    _cancel_if_sweep_stopped(origin, "collect")
     import app.workers.collectors  # noqa: F401 — registers adapters
     from app.core.config import settings
     from app.db.clients import minio_client
@@ -68,8 +95,10 @@ def collect_content(source: str, target: str, limit: int | None = None) -> list[
 
 
 @celery_app.task(base=PipelineTask, name="app.workers.tasks.discover_content")
-def discover_content(source: str, query: str, limit: int | None = None) -> list[dict]:
+def discover_content(source: str, query: str, limit: int | None = None,
+                     origin: str | None = None) -> list[dict]:
     """Proactively discover NEW content by keyword/hashtag (not a known @handle)."""
+    _cancel_if_sweep_stopped(origin, "discover")
     import app.workers.collectors  # noqa: F401 — registers adapters
     from app.core.config import settings
     from app.db.clients import minio_client
@@ -93,6 +122,7 @@ def discover_content(source: str, query: str, limit: int | None = None) -> list[
 def process_content(collected: dict) -> dict:
     """Embed the content's text (B1) -> features. STT/vision/OCR land in B2/B4."""
     _require(collected, _COLLECT_OUT, "process_content")
+    _cancel_if_sweep_stopped(collected.get("origin"), "process")      # before any paid AI call
     from app.core.config import settings
     from app.db.clients import minio_client
     from app.services.ai.factory import (
@@ -268,23 +298,32 @@ def score_content(fingerprinted: dict) -> dict:
 
 
 @celery_app.task(name="app.workers.tasks.fanout_items")
-def fanout_items(items: list[dict]) -> int:
+def fanout_items(items: list[dict], origin: str | None = None) -> int:
     """Fan out one process->fingerprint->score chain per collected item."""
+    _cancel_if_sweep_stopped(origin, "fanout")
     for item in items:
+        if origin:
+            item = {**item, "origin": origin}
         chain(process_content.s(item), fingerprint_content.s(), score_content.s()).apply_async()
     return len(items)
 
 
-def ingest(source: str, target: str, kind: str = "account", limit: int | None = None):
-    """Ingest one target: account → fetch, keyword → discover; then fan out per item."""
-    first = (discover_content.s(source, target, limit) if kind == "keyword"
-             else collect_content.s(source, target, limit))
-    return chain(first, fanout_items.s()).apply_async()
+def ingest(source: str, target: str, kind: str = "account", limit: int | None = None,
+           origin: str | None = None):
+    """Ingest one target: account → fetch, keyword → discover; then fan out per item.
+
+    `origin="sweep"` marks auto-collection work so «Остановить» can cancel it."""
+    first = (discover_content.s(source, target, limit, origin) if kind == "keyword"
+             else collect_content.s(source, target, limit, origin))
+    return chain(first, fanout_items.s(origin)).apply_async()
 
 
 @celery_app.task(name="app.workers.tasks.sweep_watchlist")
-def sweep_watchlist() -> int:
+def sweep_watchlist(force: bool = False) -> int:
     """Periodic (Celery beat, 60s tick): dispatch ingestion for every active target.
+
+    `force=True` («Запустить» in the UI) runs every active target now instead of
+    waiting for its interval.
 
     Self-gates on the UI-configurable schedule (app_setting): runs only when enabled
     AND at least `watchlist_sweep_seconds` has elapsed since the last sweep. Returns
@@ -311,7 +350,7 @@ def sweep_watchlist() -> int:
     gen = get_session()
     session = next(gen)
     try:
-        if not cfg.get_bool(session, cfg.SWEEP_ENABLED, True):
+        if not cfg.get_bool(session, cfg.SWEEP_ENABLED, cfg.SWEEP_ENABLED_DEFAULT):
             return -1                                   # auto-collection paused from the UI
         default_interval = cfg.get_int(session, cfg.SWEEP_INTERVAL, settings.watchlist_sweep_seconds)
         now = datetime.now(timezone.utc)
@@ -320,11 +359,14 @@ def sweep_watchlist() -> int:
         dispatched = 0
         for t in list_active(session):
             interval = t.interval_seconds or default_interval     # per-target cadence
-            if now_epoch - _last_epoch(t.last_run_at) < interval:
+            if not force and now_epoch - _last_epoch(t.last_run_at) < interval:
                 continue                                          # this target isn't due yet
-            ingest(t.source, t.value, kind=t.kind, limit=t.video_limit)   # per-target limit
+            ingest(t.source, t.value, kind=t.kind, limit=t.video_limit,   # per-target limit
+                   origin=SWEEP_ORIGIN)
             mark_run(session, t.id, now.isoformat())
             dispatched += 1
+        if dispatched:
+            cfg.set(session, cfg.SWEEP_LAST_RUN, str(int(now_epoch)))
         return dispatched
     finally:
         gen.close()

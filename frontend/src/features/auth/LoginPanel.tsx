@@ -29,7 +29,7 @@ export function LoginPanel() {
         <div className="login-head">
           <LogoMark className="brand-mark" size={26} />
           <div>
-            <div className="title">AFM · Fraud Intelligence</div>
+            <div className="title">SafeNet KZ · Цифровой щит</div>
             <div className="subtitle">Вход для аналитика</div>
           </div>
         </div>

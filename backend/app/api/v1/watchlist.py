@@ -142,7 +142,7 @@ def _schedule(session: Session) -> ScheduleOut:
     from app.core.config import settings
     from app.db import settings_repo as cfg
 
-    enabled = cfg.get_bool(session, cfg.SWEEP_ENABLED, True)
+    enabled = cfg.get_bool(session, cfg.SWEEP_ENABLED, cfg.SWEEP_ENABLED_DEFAULT)
     interval = cfg.get_int(session, cfg.SWEEP_INTERVAL, settings.watchlist_sweep_seconds)
     last = cfg.get_int(session, cfg.SWEEP_LAST_RUN, 0)
     nxt = (last + interval) if (enabled and last) else (int(time.time()) + interval if enabled else 0)
@@ -156,6 +156,44 @@ def get_schedule(
 ) -> ScheduleOut:
     """Current auto-collection schedule (on/off + interval + next run)."""
     return _schedule(session)
+
+
+class ScheduleAction(ScheduleOut):
+    dispatched: int = 0        # targets sent for collection right now («Запустить»)
+
+
+@router.post("/schedule/start", response_model=ScheduleAction)
+def start_auto_collection(
+    principal: Principal = Depends(require_role(Role.ANALYST)),
+    session: Session = Depends(get_session),
+) -> ScheduleAction:
+    """«Запустить автосбор»: enable it and sweep every active target immediately."""
+    from app.db import settings_repo as cfg
+    from app.services.watchlist import list_active
+
+    cfg.set(session, cfg.SWEEP_ENABLED, "true")
+    targets = len(list_active(session))
+    try:
+        from app.workers.tasks import sweep_watchlist
+        sweep_watchlist.delay(force=True)
+    except Exception as exc:  # noqa: BLE001 — broker down: setting is on, beat will pick it up
+        raise HTTPException(status_code=503, detail=f"Очередь задач недоступна: {exc}") from exc
+    record_action(session, principal.subject, "watchlist.start", f"targets={targets}")
+    return ScheduleAction(**_schedule(session).model_dump(), dispatched=targets)
+
+
+@router.post("/schedule/stop", response_model=ScheduleAction)
+def stop_auto_collection(
+    principal: Principal = Depends(require_role(Role.ANALYST)),
+    session: Session = Depends(get_session),
+) -> ScheduleAction:
+    """«Остановить автосбор»: disable it; queued auto-collection work is dropped by the
+    workers before any download or paid AI call (manual collections are unaffected)."""
+    from app.db import settings_repo as cfg
+
+    cfg.set(session, cfg.SWEEP_ENABLED, "false")
+    record_action(session, principal.subject, "watchlist.stop", "")
+    return ScheduleAction(**_schedule(session).model_dump())
 
 
 @router.put("/schedule", response_model=ScheduleOut)

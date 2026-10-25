@@ -20,7 +20,21 @@ def test_complete_clean_text_has_no_flags():
 
 
 def test_complete_returns_narrative_when_not_json():
-    assert "mock" in MockProvider().complete("Ты аналитик, напиши отчёт по фактам", "факты").lower()
+    assert MockProvider().complete("Ты аналитик, напиши отчёт по фактам", "факты")
+
+
+def test_narrative_is_built_strictly_from_facts():
+    facts = {"target": "@acc", "risk_score": 80, "threat_level": "HIGH", "findings": ["перевод на Kaspi"],
+             "scheme_matches": 2, "network": {"related_objects": 3}, "recommendation": "проверить"}
+    out = MockProvider().complete("Ты аналитик", "Факты:\n" + json.dumps(facts, ensure_ascii=False))
+    assert "@acc" in out and "80/100" in out and "перевод на Kaspi" in out
+
+
+def test_semantic_assist_quotes_are_verbatim():
+    from app.services.safenet.detector import parse_llm_hits
+    text = "Каждый день капает понемногу, ничего делать не надо"
+    raw = MockProvider().complete("…ДОСЛОВНУЮ…", "Текст:\n" + text)
+    assert parse_llm_hits(raw, text)                    # passes the anti-hallucination check
 
 
 def test_embed_text_is_deterministic_and_right_dim():
