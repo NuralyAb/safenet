@@ -1,0 +1,27 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+python-multipart==0.0.*   # required by OAuth2PasswordRequestForm on /login
+pydantic==2.*
+pydantic-settings==2.*
+sqlalchemy==2.*
+psycopg[binary]==3.*
+alembic==1.*
+celery==5.*
+redis==5.*
+neo4j==5.*
+qdrant-client==1.*
+minio==7.*
+temporalio==1.*
+python-jose[cryptography]==3.*
+argon2-cffi==23.*
+pyotp==2.*
+cryptography==43.*
+httpx==0.27.*
+yt-dlp>=2026.6.9        # keep LATEST — YouTube changes its player often; pinning breaks extraction.
+                        # Floor busts the Docker cache so a rebuild can't regress to a stale build
+                        # that fails channel listing with LOCKUP_CONTENT_TYPE_VIDEO.
+telethon==1.*           # Telegram MTProto collector
+# Inference (GPU workers) — pin/extra-index in prod:
+# faster-whisper, insightface, paddleocr, sentence-transformers, pyannote.audio, openai (for vLLM client)
+pytesseract==0.3.*      # on-prem OCR (SafeNet KZ screenshots: rus + kaz + eng)
+Pillow==11.*
